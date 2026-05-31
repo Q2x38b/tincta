@@ -1,76 +1,143 @@
 import SwiftUI
 
-/// One large cube floating in the upper portion of the liquid.
-struct HugeIceShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        // A square with subtle perspective, centered horizontally.
-        let size = min(rect.width, rect.height) * 0.55
-        let x = rect.midX - size / 2
-        let y = rect.midY - size / 2
-        let cube = CGRect(x: x, y: y, width: size, height: size)
-        var p = Path(roundedRect: cube, cornerRadius: size * 0.10)
-        // Tilt highlight diagonal
-        p.move(to: CGPoint(x: cube.minX + size * 0.18, y: cube.minY + size * 0.18))
-        p.addLine(to: CGPoint(x: cube.minX + size * 0.42, y: cube.minY + size * 0.42))
-        return p
+/// Switches between the ice variants and lays them out inside the given rect.
+/// Each variant uses a translucent fill + crisp stroked outline + a separate
+/// specular highlight overlay so the geometry stays clean — the old shape
+/// included the highlight as part of the path which made the fill weave
+/// through the diagonal and read as a hexagonal block.
+struct IceLayerView: View {
+    let ice: IceType?
+
+    var body: some View {
+        switch ice {
+        case .huge:
+            HugeIceView()
+        case .cubes:
+            IceCubesView()
+        case .crushed:
+            CrushedIceView()
+        case .none, .some(.none):
+            EmptyView()
+        }
     }
 }
 
-/// Three smaller cubes scattered.
-struct IceCubesShape: View {
+// MARK: - One large rocks cube
+
+/// The classic Old-Fashioned ice rock: a translucent cube with rounded edges,
+/// a crisp white rim, and a couple of specular highlights so it reads as
+/// real ice rather than a flat block.
+struct HugeIceView: View {
     var body: some View {
         GeometryReader { geo in
-            let s = min(geo.size.width, geo.size.height) * 0.28
+            let side = min(geo.size.width, geo.size.height) * 0.62
+            let rect = CGRect(
+                x: (geo.size.width - side) / 2,
+                y: (geo.size.height - side) / 2 + geo.size.height * 0.05,
+                width: side,
+                height: side
+            )
+            let cube = RoundedRectangle(cornerRadius: side * 0.08, style: .continuous)
+                .path(in: rect)
+
             ZStack {
+                // Translucent body so the liquid colour shows through.
+                cube.fill(Color.white.opacity(0.32))
+
+                // Soft inner glow from the upper-left so the cube has depth.
                 cube
-                    .frame(width: s, height: s)
-                    .position(x: geo.size.width * 0.36, y: geo.size.height * 0.42)
-                    .rotationEffect(.degrees(-8))
-                cube
-                    .frame(width: s * 0.95, height: s * 0.95)
-                    .position(x: geo.size.width * 0.62, y: geo.size.height * 0.36)
-                    .rotationEffect(.degrees(12))
-                cube
-                    .frame(width: s * 1.05, height: s * 1.05)
-                    .position(x: geo.size.width * 0.50, y: geo.size.height * 0.62)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.55),
+                                     Color.white.opacity(0.0)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                // Crisp rim.
+                cube.stroke(Color.white.opacity(0.85), lineWidth: 1.4)
+
+                // Two specular highlights — one short on the top edge, one
+                // longer along the upper-left face.
+                Capsule()
+                    .fill(Color.white.opacity(0.92))
+                    .frame(width: side * 0.30, height: side * 0.05)
+                    .position(x: rect.minX + side * 0.30, y: rect.minY + side * 0.18)
+                    .rotationEffect(.degrees(-6), anchor: .center)
+
+                Capsule()
+                    .fill(Color.white.opacity(0.72))
+                    .frame(width: side * 0.05, height: side * 0.45)
+                    .position(x: rect.minX + side * 0.18, y: rect.minY + side * 0.45)
+            }
+        }
+    }
+}
+
+// MARK: - Three loose cubes
+
+struct IceCubesView: View {
+    var body: some View {
+        GeometryReader { geo in
+            let s = min(geo.size.width, geo.size.height) * 0.30
+            ZStack {
+                cube(size: s)
+                    .position(x: geo.size.width * 0.36, y: geo.size.height * 0.44)
+                    .rotationEffect(.degrees(-10))
+                cube(size: s * 0.92)
+                    .position(x: geo.size.width * 0.62, y: geo.size.height * 0.38)
+                    .rotationEffect(.degrees(14))
+                cube(size: s * 1.04)
+                    .position(x: geo.size.width * 0.50, y: geo.size.height * 0.66)
                     .rotationEffect(.degrees(4))
             }
         }
     }
 
-    private var cube: some View {
-        RoundedRectangle(cornerRadius: 4)
-            .fill(Color.white.opacity(0.82))
+    private func cube(size: CGFloat) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 4, style: .continuous)
+        return shape
+            .fill(Color.white.opacity(0.55))
+            .overlay(shape.stroke(Color.white.opacity(0.92), lineWidth: 1))
             .overlay(
-                RoundedRectangle(cornerRadius: 4)
-                    .strokeBorder(Color.white.opacity(0.95), lineWidth: 1)
+                // Single crisp highlight per cube.
+                Capsule()
+                    .fill(Color.white.opacity(0.95))
+                    .frame(width: size * 0.30, height: size * 0.06)
+                    .offset(x: -size * 0.12, y: -size * 0.30)
             )
+            .frame(width: size, height: size)
     }
 }
 
-/// Crushed-ice stipple — a cloud of tiny chips packed into a region.
-struct CrushedIceShape: View {
+// MARK: - Crushed ice (stippled cloud)
+
+struct CrushedIceView: View {
     var body: some View {
         Canvas { ctx, size in
-            // Deterministic pseudo-random scatter of chips.
-            var rng = SystemRNG(seed: 0xC0_FF_EE)
-            let count = 70
+            // Deterministic pseudo-random scatter so it doesn't flicker on
+            // every redraw.
+            var rng = SeededRNG(seed: 0xC0_FF_EE)
+            let count = 80
             for _ in 0..<count {
                 let x = Double.random(in: 0...1, using: &rng) * size.width
-                // Keep chips in the upper 60% of the box (above ice line)
-                let y = (0.05 + Double.random(in: 0...1, using: &rng) * 0.7) * size.height
-                let w = 4 + Double.random(in: 0...1, using: &rng) * 6
-                let h = 3 + Double.random(in: 0...1, using: &rng) * 5
+                // Pack the chips into the upper 65% of the box (above ice line).
+                let y = (0.05 + Double.random(in: 0...1, using: &rng) * 0.70) * size.height
+                let w = 5 + Double.random(in: 0...1, using: &rng) * 7
+                let h = 4 + Double.random(in: 0...1, using: &rng) * 6
                 let rect = CGRect(x: x - w/2, y: y - h/2, width: w, height: h)
-                let path = Path(roundedRect: rect, cornerRadius: 1.5)
+                let path = Path(roundedRect: rect, cornerRadius: 1.6)
                 ctx.fill(path, with: .color(.white.opacity(0.9)))
+                ctx.stroke(path, with: .color(.white.opacity(0.55)), lineWidth: 0.4)
             }
         }
     }
 }
 
-/// Tiny seeded RNG so the crushed-ice scatter is stable across redraws.
-struct SystemRNG: RandomNumberGenerator {
+// MARK: - Stable RNG so the stipple doesn't shimmer
+
+struct SeededRNG: RandomNumberGenerator {
     var state: UInt64
     init(seed: UInt64) { self.state = seed != 0 ? seed : 0xDEADBEEF }
     mutating func next() -> UInt64 {
@@ -82,29 +149,6 @@ struct SystemRNG: RandomNumberGenerator {
     }
 }
 
-/// Switches between the ice variants and positions them inside the given rect.
-struct IceLayerView: View {
-    let ice: IceType?
-
-    var body: some View {
-        switch ice {
-        case .huge:
-            HugeIceShape()
-                .fill(Color.white.opacity(0.55))
-                .overlay(
-                    HugeIceShape()
-                        .stroke(Color.white.opacity(0.85), lineWidth: 1)
-                )
-        case .cubes:
-            IceCubesShape()
-        case .crushed:
-            CrushedIceShape()
-        case .none, .some(.none):
-            EmptyView()
-        }
-    }
-}
-
 #Preview {
     VStack(spacing: 20) {
         ForEach(IceType.allCases) { ice in
@@ -112,9 +156,12 @@ struct IceLayerView: View {
                 Rectangle().fill(Color(hex: "#C8843B"))
                 IceLayerView(ice: ice)
             }
-            .frame(width: 220, height: 160)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(Text(ice.display).font(.caption).foregroundStyle(.white), alignment: .bottom)
+            .frame(width: 240, height: 200)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(
+                Text(ice.display).font(.caption).foregroundStyle(.white).padding(6),
+                alignment: .bottom
+            )
         }
     }
     .padding()

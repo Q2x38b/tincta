@@ -192,48 +192,40 @@ struct RecipeDetailView: View {
     // MARK: - Bottom glass bar
 
     private var bottomBar: some View {
-        TinctaGlassContainer {
-            HStack(spacing: 14) {
-                Button(action: onDismiss) {
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 18, weight: .semibold))
-                        .frame(width: 40, height: 40)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Dismiss")
-                .frame(minWidth: 44, minHeight: 44)
-
-                UnitToggle(selection: $model.displayUnit, foreground: foreground)
-
-                QuantityStepper(value: $model.quantityMultiplier, foreground: foreground)
-
-                Spacer(minLength: 0)
-
-                Button {
-                    onShare(recipe)
-                } label: {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 18, weight: .semibold))
-                        .frame(width: 40, height: 40)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Share recipe")
-                .frame(minWidth: 44, minHeight: 44)
+        // Just the buttons, no glass capsule — they sit on the recipe's own
+        // background color and read as native controls.
+        HStack(spacing: 14) {
+            Button(action: onDismiss) {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 18, weight: .semibold))
+                    .frame(width: 40, height: 40)
+                    .contentShape(Rectangle())
             }
-            .foregroundStyle(foreground)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(glassBackground)
-        }
-    }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss")
+            .frame(minWidth: 44, minHeight: 44)
 
-    private var glassBackground: some View {
-        Capsule(style: .continuous)
-            .glassEffect(.regular, in: Capsule(style: .continuous))
-            .padding(.horizontal, 12)
-            .padding(.bottom, 8)
+            UnitToggle(selection: $model.displayUnit, foreground: foreground)
+
+            QuantityStepper(value: $model.quantityMultiplier, foreground: foreground)
+
+            Spacer(minLength: 0)
+
+            Button {
+                onShare(recipe)
+            } label: {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 18, weight: .semibold))
+                    .frame(width: 40, height: 40)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Share recipe")
+            .frame(minWidth: 44, minHeight: 44)
+        }
+        .foregroundStyle(foreground)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
     }
 }
 

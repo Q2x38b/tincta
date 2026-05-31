@@ -59,7 +59,17 @@ struct DrinkPreviewView: View {
                     .frame(width: drawSize.width, height: drawSize.height)
                     .offset(x: origin.x, y: origin.y)
 
-                // 3b. Rim band for sugar/salt (drawn above wall, below garnish)
+                // 3a. Stem + foot for footed glasses (martini, coupe, …).
+                // No-op for tumblers/mugs.
+                VesselFooting(vessel: vessel)
+                    .frame(width: drawSize.width, height: drawSize.height)
+                    .offset(x: origin.x, y: origin.y)
+
+                // 3b. Rim ellipse: a thin top-of-glass lip so the silhouette
+                // reads as a hollow vessel rather than a flat shape.
+                rimLip(for: vessel, in: drawSize, origin: origin)
+
+                // 3c. Rim band for sugar/salt (drawn above wall, below garnish)
                 rimDust(for: garnishes, in: drawSize, origin: origin, vessel: vessel)
 
                 // 4. Citrus garnishes — drape across rim
@@ -124,6 +134,23 @@ struct DrinkPreviewView: View {
                     }
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func rimLip(for vessel: Vessel,
+                        in drawSize: CGSize,
+                        origin: CGPoint) -> some View {
+        if let rim = VesselShape(vessel: vessel).rimLine {
+            let leftX  = origin.x + rim.left.x  * drawSize.width
+            let rightX = origin.x + rim.right.x * drawSize.width
+            let rimY   = origin.y + rim.left.y  * drawSize.height
+            let width  = rightX - leftX
+            // Flat ellipse sitting on the rim line — gives the glass a lip.
+            Ellipse()
+                .stroke(Color.white.opacity(0.85), lineWidth: 1.4)
+                .frame(width: width, height: max(6, width * 0.10))
+                .position(x: (leftX + rightX) / 2, y: rimY)
         }
     }
 

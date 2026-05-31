@@ -62,6 +62,11 @@ final class RecipeEditorViewModel {
     /// Currently expanded row, if any. Tapping a row toggles this.
     var expandedIngredientID: UUID?
 
+    /// In-memory DrinkLook used by the Drink Builder for brand-new recipes.
+    /// Persisted into the freshly-created Recipe on `save(in:)`. Nil until
+    /// the user actually opens the builder.
+    var workingDrinkLook: DrinkLook?
+
     init(recipe: Recipe?) {
         self.editingRecipe = recipe
         if let r = recipe {
@@ -80,6 +85,17 @@ final class RecipeEditorViewModel {
     }
 
     var isEditingExisting: Bool { editingRecipe != nil }
+
+    /// Returns a DrinkLook the Drink Builder can mutate. For existing recipes
+    /// this is the recipe's own DrinkLook (mutations persist via SwiftData).
+    /// For new recipes a transient DrinkLook is created and persisted on save.
+    func ensureDrinkLook() -> DrinkLook {
+        if let existing = editingRecipe?.drinkLook { return existing }
+        if let working = workingDrinkLook { return working }
+        let fresh = DrinkLook(vessel: .rocks, drinkColorHex: "")
+        workingDrinkLook = fresh
+        return fresh
+    }
 
     // MARK: - Ingredient mutations
 
@@ -135,7 +151,9 @@ final class RecipeEditorViewModel {
                 createdAt: now,
                 updatedAt: now
             )
-            let look = DrinkLook(vessel: .rocks, drinkColorHex: "")
+            // Persist the look the user shaped in the builder if they opened
+            // it; otherwise fall back to an empty rocks glass.
+            let look = workingDrinkLook ?? DrinkLook(vessel: .rocks, drinkColorHex: "")
             recipe.drinkLook = look
             context.insert(recipe)
             context.insert(look)

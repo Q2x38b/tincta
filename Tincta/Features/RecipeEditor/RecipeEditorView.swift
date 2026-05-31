@@ -8,25 +8,20 @@ struct RecipeEditorView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
-    /// Caller-supplied callbacks for sibling-feature navigation.
-    var onEditDrinkLook: (() -> Void)?
-    var onChangeColor: (() -> Void)?
     /// Called after a successful delete so parents can pop back to the gallery.
     var onDelete: (() -> Void)?
 
     @State private var viewModel: RecipeEditorViewModel
     @State private var showDeleteConfirm = false
+    @State private var showColorPicker = false
+    @State private var showDrinkBuilder = false
     @FocusState private var nameFocused: Bool
 
     init(
         recipe: Recipe?,
-        onEditDrinkLook: (() -> Void)? = nil,
-        onChangeColor: (() -> Void)? = nil,
         onDelete: (() -> Void)? = nil
     ) {
         _viewModel = State(initialValue: RecipeEditorViewModel(recipe: recipe))
-        self.onEditDrinkLook = onEditDrinkLook
-        self.onChangeColor = onChangeColor
         self.onDelete = onDelete
     }
 
@@ -72,6 +67,27 @@ struct RecipeEditorView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This can't be undone.")
+        }
+        // Color picker — owned here so the choice writes straight into our
+        // own view-model and the editor's background updates live.
+        .sheet(isPresented: $showColorPicker) {
+            ColorPickerView(
+                initialHex: viewModel.backgroundColorHex,
+                onSelect: { swatch in
+                    viewModel.backgroundColorHex = swatch.hex
+                    showColorPicker = false
+                },
+                onCancel: { showColorPicker = false }
+            )
+        }
+        // Drink Builder — also owned here. For brand-new recipes we lazily
+        // mint a DrinkLook on the view model so the builder always has one
+        // to mutate; it gets persisted with the recipe on Done.
+        .sheet(isPresented: $showDrinkBuilder) {
+            DrinkBuilderView(
+                look: viewModel.ensureDrinkLook(),
+                backgroundHex: viewModel.backgroundColorHex
+            )
         }
     }
 
@@ -219,10 +235,10 @@ struct RecipeEditorView: View {
         VStack(alignment: .leading, spacing: 8) {
             sectionLabel("DRINK IMAGE")
             Button {
-                onEditDrinkLook?()
+                showDrinkBuilder = true
             } label: {
                 HStack(spacing: 14) {
-                    DrinkPreviewView(look: viewModel.editingRecipe?.drinkLook)
+                    DrinkPreviewView(look: viewModel.workingDrinkLook ?? viewModel.editingRecipe?.drinkLook)
                         .frame(width: 56, height: 72)
                     Text("EDIT IMAGE")
                         .font(.tinctaUILabel(13))
@@ -271,7 +287,7 @@ struct RecipeEditorView: View {
 
     private var backgroundColorRow: some View {
         Button {
-            onChangeColor?()
+            showColorPicker = true
         } label: {
             HStack(spacing: 14) {
                 Circle()

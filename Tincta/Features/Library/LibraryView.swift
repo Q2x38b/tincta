@@ -64,7 +64,7 @@ struct LibraryView: View {
             .presentationDragIndicator(.visible)
         }
         .sheet(item: $editorTarget) { target in
-            EditorSheet(target: target)
+            RecipeEditorView(recipe: target.recipe)
         }
         .sheet(item: $shareRecipe) { recipe in
             RecipeShareSheet(recipe: recipe)
@@ -106,6 +106,10 @@ struct LibraryView: View {
         viewModel.filtered(recipes)
     }
 
+    /// Y offset at which a card "sticks" to the top of the viewport. Past
+    /// this point the card stops scrolling and later cards slide on top.
+    private let stickyTopInset: CGFloat = 60
+
     private var cardStack: some View {
         ScrollView {
             // Track scroll offset for the pull-down-to-search gesture.
@@ -129,6 +133,19 @@ struct LibraryView: View {
                         RecipeCardView(recipe: recipe, namespace: cardNamespace)
                     }
                     .buttonStyle(.plain)
+                    // Sticky-stack: once a card's top crosses the viewport's
+                    // top inset, freeze it there. Later cards then slide on
+                    // top, piling up at the top of the screen. visualEffect
+                    // applies only a transform — layout-wise the card still
+                    // takes its scroll-space, so the stack stays well-behaved
+                    // when the user scrolls back up.
+                    .visualEffect { [stickyTopInset] content, geo in
+                        let minY = geo.frame(in: .named("library-scroll")).minY
+                        let shift = minY < stickyTopInset
+                            ? (stickyTopInset - minY)
+                            : 0
+                        return content.offset(y: shift)
+                    }
                     // LATER cards stack ON TOP of earlier ones — that's why the
                     // title-then-bleed-into-next-card pattern reads correctly.
                     .zIndex(Double(index))
@@ -191,49 +208,6 @@ enum EditorTarget: Identifiable {
     var recipe: Recipe? {
         if case .existing(let r) = self { return r }
         return nil
-    }
-}
-
-/// Wraps `RecipeEditorView` to also manage Drink Builder and Color Picker
-/// sheets that the editor delegates to via its callbacks.
-struct EditorSheet: View {
-    @Environment(\.modelContext) private var context
-    let target: EditorTarget
-
-    @State private var showBuilder = false
-    @State private var showColorPicker = false
-    @State private var workingDrinkLook: DrinkLook?
-
-    var body: some View {
-        RecipeEditorView(
-            recipe: target.recipe,
-            onEditDrinkLook: {
-                workingDrinkLook = target.recipe?.drinkLook
-                showBuilder = true
-            },
-            onChangeColor: { showColorPicker = true }
-        )
-        .sheet(isPresented: $showBuilder) {
-            if let look = workingDrinkLook {
-                DrinkBuilderView(look: look,
-                                 backgroundHex: target.recipe?.backgroundColorHex ?? "#3F5C5F")
-            } else {
-                Text("Save the recipe first to edit its drink image.")
-                    .padding()
-                    .presentationDetents([.medium])
-            }
-        }
-        .sheet(isPresented: $showColorPicker) {
-            ColorPickerView(
-                initialHex: target.recipe?.backgroundColorHex ?? TinctaPalette.sage.hex,
-                onSelect: { swatch in
-                    target.recipe?.backgroundColorHex = swatch.hex
-                    try? context.save()
-                    showColorPicker = false
-                },
-                onCancel: { showColorPicker = false }
-            )
-        }
     }
 }
 

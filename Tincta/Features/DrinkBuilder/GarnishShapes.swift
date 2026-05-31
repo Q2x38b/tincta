@@ -243,7 +243,7 @@ struct RimDustShape: View {
     var body: some View {
         GeometryReader { geo in
             Canvas { ctx, size in
-                var rng = SystemRNG(seed: 0xBADA55)
+                var rng = SeededRNG(seed: 0xBADA55)
                 let count = 80
                 for _ in 0..<count {
                     let x = Double.random(in: 0...1, using: &rng) * size.width
