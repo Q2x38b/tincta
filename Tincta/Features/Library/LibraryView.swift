@@ -20,18 +20,17 @@ struct LibraryView: View {
 
     // Sheet/overlay presentation state — owned by the Library since it's home.
     @State private var detailRecipe: Recipe?
-    @State private var menuPresented = false
     @State private var editorTarget: EditorTarget?
     @State private var shareRecipe: Recipe?
     @State private var importPreview: ImportPreview?
     @State private var scanSource: RecipeImportSource?
     @State private var showSettings = false
     @State private var showAbout = false
+    @State private var showSearch = false
 
-    /// Vertical overlap between consecutive cards. Each card is ~520pt tall;
-    /// overlapping by ~250pt leaves the title + 4 ingredient lines visible
-    /// before the next card stacks on top.
-    private let cardOverlap: CGFloat = 250
+    /// Vertical overlap between consecutive cards. Card is now 420pt; overlap
+    /// of ~210pt leaves title + 3 ingredient lines visible.
+    private let cardOverlap: CGFloat = 210
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -77,26 +76,12 @@ struct LibraryView: View {
         .sheet(item: $scanSource) { source in
             RecipeImportFlow(source: source)
         }
-        .overlay(alignment: .topTrailing) {
-            if menuPresented {
-                MenuDropdownView(
-                    isPresented: $menuPresented,
-                    onSettings: { menuPresented = false; showSettings = true },
-                    onShare: { menuPresented = false },
-                    onImport: { menuPresented = false },
-                    onAbout: { menuPresented = false; showAbout = true },
-                    onScan: { source in
-                        menuPresented = false
-                        scanSource = source
-                    }
-                )
-                .padding(.top, 76)
-                .padding(.trailing, 18)
-                .transition(.scale(scale: 0.92, anchor: .topTrailing).combined(with: .opacity))
-                .zIndex(10)
+        .sheet(isPresented: $showSearch) {
+            LibrarySearchView(recipes: recipes) { recipe in
+                showSearch = false
+                detailRecipe = recipe
             }
         }
-        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: menuPresented)
         .handleTinctaImportLink(into: modelContext, presented: $importPreview)
     }
 
@@ -105,10 +90,6 @@ struct LibraryView: View {
     private var displayedRecipes: [Recipe] {
         viewModel.filtered(recipes)
     }
-
-    /// Y offset at which a card "sticks" to the top of the viewport. Past
-    /// this point the card stops scrolling and later cards slide on top.
-    private let stickyTopInset: CGFloat = 60
 
     private var cardStack: some View {
         ScrollView {
@@ -123,8 +104,9 @@ struct LibraryView: View {
             .frame(height: 0)
 
             LazyVStack(spacing: -cardOverlap) {
-                // Top spacing for safe area + status bar.
-                Color.clear.frame(height: 24)
+                // Top spacing so the first card sits BELOW the floating
+                // buttons in the safe area, not under them.
+                Color.clear.frame(height: 88)
 
                 ForEach(Array(displayedRecipes.enumerated()), id: \.element.id) { index, recipe in
                     Button {
@@ -133,21 +115,8 @@ struct LibraryView: View {
                         RecipeCardView(recipe: recipe, namespace: cardNamespace)
                     }
                     .buttonStyle(.plain)
-                    // Sticky-stack: once a card's top crosses the viewport's
-                    // top inset, freeze it there. Later cards then slide on
-                    // top, piling up at the top of the screen. visualEffect
-                    // applies only a transform — layout-wise the card still
-                    // takes its scroll-space, so the stack stays well-behaved
-                    // when the user scrolls back up.
-                    .visualEffect { [stickyTopInset] content, geo in
-                        let minY = geo.frame(in: .named("library-scroll")).minY
-                        let shift = minY < stickyTopInset
-                            ? (stickyTopInset - minY)
-                            : 0
-                        return content.offset(y: shift)
-                    }
-                    // LATER cards stack ON TOP of earlier ones — that's why the
-                    // title-then-bleed-into-next-card pattern reads correctly.
+                    // LATER cards stack ON TOP of earlier ones so each title
+                    // peeks above the bottom of the previous card.
                     .zIndex(Double(index))
                 }
 
@@ -168,10 +137,44 @@ struct LibraryView: View {
     private var floatingControls: some View {
         VStack {
             HStack {
-                Spacer()
-                GlassButton(systemImage: "ellipsis") {
-                    menuPresented.toggle()
+                // Search button — top-left. Indexes by recipe name + ingredient.
+                Button {
+                    showSearch = true
+                } label: {
+                    GlassChip(systemImage: "magnifyingglass")
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Search recipes")
+                .padding(.top, 12)
+                .padding(.leading, 18)
+
+                Spacer()
+
+                // Native dropdown: glass label expands into the menu on tap.
+                Menu {
+                    Section {
+                        Button {
+                            scanSource = .camera
+                        } label: { Label("Scan with Camera", systemImage: "camera") }
+                        Button {
+                            scanSource = .photos
+                        } label: { Label("Pick from Photos", systemImage: "photo.on.rectangle") }
+                        Button {
+                            scanSource = .files
+                        } label: { Label("Choose Files", systemImage: "folder") }
+                    }
+                    Section {
+                        Button {
+                            showSettings = true
+                        } label: { Label("Settings", systemImage: "gearshape") }
+                        Button {
+                            showAbout = true
+                        } label: { Label("About", systemImage: "info.circle") }
+                    }
+                } label: {
+                    GlassChip(systemImage: "ellipsis")
+                }
+                .menuStyle(.button)
                 .accessibilityLabel("Library menu")
                 .padding(.top, 12)
                 .padding(.trailing, 18)

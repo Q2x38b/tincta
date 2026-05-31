@@ -10,36 +10,30 @@ struct RecipeCardView: View {
     /// expand animation into RecipeDetailView.
     let namespace: Namespace.ID
 
-    /// Maximum number of ingredient lines previewed on the card. The mocks
-    /// show four lines before the next card peeks through.
     private let previewLineCount = 4
-    /// Approximate fixed card height. Cards overlap by ~120pt (set in parent),
-    /// so the next card's title peeks through under this one.
-    private let cardHeight: CGFloat = 520
+    /// Tighter card height matching the user's mock — title + ~3 ingredient
+    /// lines visible above the next card's bleed.
+    private let cardHeight: CGFloat = 420
 
     var body: some View {
         let foreground = contrastingForeground(forHex: recipe.backgroundColorHex)
         let ingredients = Array(recipe.orderedIngredients.prefix(previewLineCount))
 
-        VStack(alignment: .leading, spacing: 24) {
-            // Title block — large display caps, wrapped to the card width.
+        VStack(alignment: .leading, spacing: 18) {
             Text(recipe.name.uppercased())
-                .font(.tinctaDisplay(56))
-                .tracking(-0.5)
-                .lineSpacing(-6)
+                .font(.tinctaDisplay(34))
+                .tracking(-0.3)
+                .lineSpacing(-4)
                 .foregroundStyle(foreground)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
                 .matchedGeometryEffect(id: "recipe-title-\(recipe.id)", in: namespace)
 
-            // Hairline divider tinted to the foreground for contrast.
             Rectangle()
                 .fill(foreground.opacity(0.35))
                 .frame(height: 0.7)
 
-            // Ingredient preview lines. Italic serif, drawn in the card's
-            // contrasting foreground.
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 ForEach(ingredients, id: \.id) { ingredient in
                     IngredientLineText(
                         quantity: Ingredient.formatQuantity(
@@ -48,7 +42,7 @@ struct RecipeCardView: View {
                         ),
                         unit: ingredient.unit.display(forAmount: ingredient.amount),
                         name: ingredient.name,
-                        pointSize: 22
+                        pointSize: 18
                     )
                     .foregroundStyle(foreground)
                     .lineLimit(1)
@@ -58,26 +52,26 @@ struct RecipeCardView: View {
 
             Spacer(minLength: 0)
 
-            // Optional credit footer.
             if let credit = recipe.credit, !credit.isEmpty {
                 Text(credit.uppercased())
-                    .font(.tinctaUILabel(11))
+                    .font(.tinctaUILabel(10))
                     .tracking(1.2)
                     .foregroundStyle(foreground.opacity(0.7))
             }
         }
-        .padding(.horizontal, 28)
-        .padding(.top, 36)
-        .padding(.bottom, 28)
+        .padding(.horizontal, 24)
+        .padding(.top, 26)
+        .padding(.bottom, 22)
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: cardHeight)
         .background(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .fill(Color(hex: recipe.backgroundColorHex))
                 .matchedGeometryEffect(id: "recipe-card-\(recipe.id)", in: namespace)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .shadow(color: Color.black.opacity(0.22), radius: 18, x: 0, y: 10)
+        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+        // Tiny shadow — just enough to lift cards off the dark background.
+        .shadow(color: Color.black.opacity(0.20), radius: 6, x: 0, y: 3)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(recipe.name))
         .accessibilityHint(Text("Tap to open recipe"))

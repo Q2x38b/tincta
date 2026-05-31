@@ -1,12 +1,18 @@
 import SwiftUI
 import SwiftData
+import os
+
+private let launchLog = Logger(subsystem: "com.tincta.app", category: "launch")
 
 @main
 struct TinctaApp: App {
     /// Resolved on a background task in `LaunchGate.task` — keeps `init` cheap
-    /// so the launch screen comes down quickly. Until it's ready, the gate
-    /// shows the parchment splash so the user never sees a black void.
+    /// so the launch screen comes down quickly.
     @State private var container: ModelContainer?
+
+    init() {
+        launchLog.notice("TinctaApp.init")
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -22,6 +28,7 @@ struct TinctaApp: App {
 /// a background actor so the first frame paints instantly.
 private struct LaunchGate: View {
     @Binding var container: ModelContainer?
+    @State private var pulse = false
 
     var body: some View {
         Group {
@@ -33,10 +40,13 @@ private struct LaunchGate: View {
             }
         }
         .task(priority: .userInitiated) {
-            // Skip the async load if the container is already initialised
-            // (happens on background-to-foreground re-entry, not on cold launch).
+            // Skip the async load if the container is already initialised.
             guard container == nil else { return }
+            let start = ContinuousClock.now
+            launchLog.notice("makeSharedAsync: starting")
             let resolved = await TinctaModelContainer.makeSharedAsync()
+            let elapsed = ContinuousClock.now - start
+            launchLog.notice("makeSharedAsync: done in \(elapsed.components.seconds).\(elapsed.components.attoseconds / 100_000_000_000_000_000)s")
             await MainActor.run { container = resolved }
         }
     }
@@ -44,12 +54,24 @@ private struct LaunchGate: View {
     private var splash: some View {
         ZStack {
             Color.tinctaInk.ignoresSafeArea()
-            Image("Logo")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: 140, height: 140)
-                .opacity(0.85)
+            VStack(spacing: 22) {
+                Image("Logo")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 132, height: 132)
+                    .opacity(pulse ? 0.95 : 0.65)
+                    .scaleEffect(pulse ? 1.0 : 0.96)
+                    .animation(
+                        .easeInOut(duration: 1.1).repeatForever(autoreverses: true),
+                        value: pulse
+                    )
+                Text("Pouring your bar…")
+                    .font(.tinctaUILabel(12))
+                    .tracking(1.4)
+                    .foregroundStyle(.white.opacity(0.55))
+            }
         }
+        .onAppear { pulse = true }
         .accessibilityLabel("Loading Tincta")
     }
 }
