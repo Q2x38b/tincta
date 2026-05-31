@@ -222,7 +222,7 @@ struct RecipeEditorView: View {
                 onEditDrinkLook?()
             } label: {
                 HStack(spacing: 14) {
-                    DrinkLookPlaceholderView()
+                    DrinkPreviewView(look: viewModel.editingRecipe?.drinkLook)
                         .frame(width: 56, height: 72)
                     Text("EDIT IMAGE")
                         .font(.tinctaUILabel(13))
@@ -326,21 +326,6 @@ struct RecipeEditorView: View {
             .font(.tinctaUILabel(11))
             .tracking(1.6)
             .foregroundStyle(foreground.opacity(0.65))
-    }
-}
-
-/// Lightweight stand-in for the real Drink Builder thumbnail. The actual
-/// `DrinkLookRenderer` lives in a sibling worktree; this just shows a glass
-/// silhouette so this view is self-contained.
-struct DrinkLookPlaceholderView: View {
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.white.opacity(0.15))
-            Image(systemName: "wineglass")
-                .font(.system(size: 26, weight: .light))
-                .foregroundStyle(.white.opacity(0.8))
-        }
     }
 }
 

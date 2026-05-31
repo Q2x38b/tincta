@@ -45,3 +45,5 @@ final class Recipe {
         ingredients.sorted { $0.order < $1.order }
     }
 }
+
+extension Recipe: Identifiable {}

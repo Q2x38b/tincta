@@ -143,8 +143,7 @@ struct RecipeDetailView: View {
     private var drinkGraphic: some View {
         HStack {
             Spacer()
-            DrinkLookPlaceholderView(drinkLook: recipe.drinkLook,
-                                     foreground: foreground)
+            DrinkPreviewView(look: recipe.drinkLook)
                 .frame(width: 200, height: 240)
             Spacer()
         }
@@ -354,56 +353,6 @@ private struct QuantityStepper: View {
         .buttonStyle(.plain)
         .disabled(!enabled)
         .frame(minWidth: 32, minHeight: 32)
-    }
-}
-
-// MARK: - DrinkLookPlaceholderView
-
-/// Stand-in for the real vector drink renderer. Draws a soft, rounded vessel
-/// silhouette tinted by the drink color. Replaced at integration time.
-struct DrinkLookPlaceholderView: View {
-    let drinkLook: DrinkLook?
-    let foreground: Color
-
-    private var liquidColor: Color {
-        guard let look = drinkLook, look.hasLiquid else {
-            return foreground.opacity(0.18)
-        }
-        return Color(hex: look.drinkColorHex)
-    }
-
-    private var vesselLabel: String {
-        drinkLook?.vessel.display ?? "Glass"
-    }
-
-    var body: some View {
-        ZStack {
-            // Vessel silhouette
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .strokeBorder(foreground.opacity(0.4), lineWidth: 1.5)
-
-            // Liquid fill, leaving a "rim" gap at the top.
-            VStack(spacing: 0) {
-                Spacer(minLength: 28)
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(liquidColor)
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 14)
-            }
-
-            // Caption so designers can tell which vessel/ice was picked even
-            // before the real renderer ships.
-            VStack {
-                Spacer()
-                Text(vesselLabel.uppercased())
-                    .font(.tinctaUILabel(10))
-                    .tracking(1.5)
-                    .opacity(0.7)
-                    .padding(.bottom, 22)
-            }
-        }
-        .accessibilityElement()
-        .accessibilityLabel("Drink illustration: \(vesselLabel)")
     }
 }
 

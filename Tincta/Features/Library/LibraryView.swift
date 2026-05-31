@@ -22,6 +22,14 @@ struct LibraryView: View {
     @State private var path = NavigationPath()
     @Namespace private var cardNamespace
 
+    // Sheet presentation state — owned by the Library since it's the app's home.
+    @State private var menuPresented = false
+    @State private var editorTarget: EditorTarget?
+    @State private var shareRecipe: Recipe?
+    @State private var importPreview: ImportPreview?
+    @State private var showSettings = false
+    @State private var showAbout = false
+
     /// Vertical overlap between consecutive cards. Negative spacing makes
     /// each card slip ~140pt under the next so titles peek through.
     private let cardOverlap: CGFloat = 140
@@ -51,12 +59,44 @@ struct LibraryView: View {
             .navigationDestination(for: LibraryRoute.self) { route in
                 switch route {
                 case .detail(let id):
-                    RecipeDetailRoute(recipeID: id, namespace: cardNamespace)
+                    RecipeDetailRoute(
+                        recipeID: id,
+                        namespace: cardNamespace,
+                        onEdit: { recipe in editorTarget = .existing(recipe) },
+                        onShare: { recipe in shareRecipe = recipe }
+                    )
                 case .editor:
-                    // Editor lives in a separate worktree; placeholder for now.
-                    RecipeEditorPlaceholder()
+                    EmptyView()  // editor is presented as a sheet, not pushed
                 }
             }
+            .sheet(item: $editorTarget) { target in
+                EditorSheet(target: target)
+            }
+            .sheet(item: $shareRecipe) { recipe in
+                RecipeShareSheet(recipe: recipe)
+            }
+            .sheet(item: $importPreview) { preview in
+                ImportPreviewView(transfer: preview.transfer)
+            }
+            .sheet(isPresented: $showSettings) { SettingsView() }
+            .sheet(isPresented: $showAbout) { AboutView() }
+            .overlay(alignment: .topTrailing) {
+                if menuPresented {
+                    MenuDropdownView(
+                        isPresented: $menuPresented,
+                        onSettings: { menuPresented = false; showSettings = true },
+                        onShare: { menuPresented = false /* hook for shared library export later */ },
+                        onImport: { menuPresented = false /* hook for paste/file picker later */ },
+                        onAbout: { menuPresented = false; showAbout = true }
+                    )
+                    .padding(.top, 76)
+                    .padding(.trailing, 18)
+                    .transition(.scale(scale: 0.92, anchor: .topTrailing).combined(with: .opacity))
+                    .zIndex(10)
+                }
+            }
+            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: menuPresented)
+            .handleTinctaImportLink(into: modelContext, presented: $importPreview)
         }
     }
 
@@ -113,7 +153,7 @@ struct LibraryView: View {
             HStack {
                 Spacer()
                 GlassButton(systemImage: "ellipsis", tint: Color.tinctaInk) {
-                    // Wired by integration on main.
+                    menuPresented.toggle()
                 }
                 .accessibilityLabel("Library menu")
                 .padding(.top, 12)
@@ -123,12 +163,76 @@ struct LibraryView: View {
             HStack {
                 Spacer()
                 GlassButton(systemImage: "plus", tint: Color.tinctaInk) {
-                    // Wired by integration on main.
+                    editorTarget = .new
                 }
                 .accessibilityLabel("New recipe")
                 .padding(.bottom, 28)
                 .padding(.trailing, 18)
             }
+        }
+    }
+}
+
+// MARK: - Editor sheet plumbing
+
+/// What the editor is editing — either an existing recipe or a freshly-created
+/// blank one. Identifiable so SwiftUI's `.sheet(item:)` knows when to re-present.
+enum EditorTarget: Identifiable {
+    case new
+    case existing(Recipe)
+
+    var id: UUID {
+        switch self {
+        case .new:                      return UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+        case .existing(let recipe):     return recipe.id
+        }
+    }
+
+    var recipe: Recipe? {
+        if case .existing(let r) = self { return r }
+        return nil
+    }
+}
+
+/// Wraps `RecipeEditorView` to also manage Drink Builder and Color Picker
+/// sheets that the editor delegates to via its callbacks.
+struct EditorSheet: View {
+    @Environment(\.modelContext) private var context
+    let target: EditorTarget
+
+    @State private var showBuilder = false
+    @State private var showColorPicker = false
+    @State private var workingDrinkLook: DrinkLook?
+
+    var body: some View {
+        RecipeEditorView(
+            recipe: target.recipe,
+            onEditDrinkLook: {
+                workingDrinkLook = target.recipe?.drinkLook
+                showBuilder = true
+            },
+            onChangeColor: { showColorPicker = true }
+        )
+        .sheet(isPresented: $showBuilder) {
+            if let look = workingDrinkLook {
+                DrinkBuilderView(look: look,
+                                 backgroundHex: target.recipe?.backgroundColorHex ?? "#3F5C5F")
+            } else {
+                Text("Save the recipe first to edit its drink image.")
+                    .padding()
+                    .presentationDetents([.medium])
+            }
+        }
+        .sheet(isPresented: $showColorPicker) {
+            ColorPickerView(
+                initialHex: target.recipe?.backgroundColorHex ?? TinctaPalette.sage.hex,
+                onSelect: { swatch in
+                    target.recipe?.backgroundColorHex = swatch.hex
+                    try? context.save()
+                    showColorPicker = false
+                },
+                onCancel: { showColorPicker = false }
+            )
         }
     }
 }
@@ -144,46 +248,44 @@ private struct ScrollOffsetPreferenceKey: PreferenceKey {
 
 // MARK: - Placeholder destinations
 
-/// Stand-in for the real detail screen. Integration on `main` will replace
-/// this with the production view from the detail worktree.
+/// Navigation destination for a recipe by id. Looks the recipe up in SwiftData
+/// and renders the production `RecipeDetailView`, forwarding Edit and Share
+/// taps back to the Library so the right sheet can be presented.
 struct RecipeDetailRoute: View {
     let recipeID: UUID
     let namespace: Namespace.ID
+    let onEdit: (Recipe) -> Void
+    let onShare: (Recipe) -> Void
 
+    @Environment(\.dismiss) private var dismiss
     @Query private var recipes: [Recipe]
 
-    init(recipeID: UUID, namespace: Namespace.ID) {
+    init(recipeID: UUID,
+         namespace: Namespace.ID,
+         onEdit: @escaping (Recipe) -> Void,
+         onShare: @escaping (Recipe) -> Void) {
         self.recipeID = recipeID
         self.namespace = namespace
+        self.onEdit = onEdit
+        self.onShare = onShare
         let id = recipeID
         _recipes = Query(filter: #Predicate<Recipe> { $0.id == id })
     }
 
     var body: some View {
-        let recipe = recipes.first
-        ZStack {
-            Color(hex: recipe?.backgroundColorHex ?? "#1A1A1A").ignoresSafeArea()
-            VStack(spacing: 16) {
-                Text(recipe?.name.uppercased() ?? "RECIPE")
-                    .font(.tinctaDisplay(48))
-                    .foregroundStyle(contrastingForeground(forHex: recipe?.backgroundColorHex ?? "#1A1A1A"))
-                    .matchedGeometryEffect(id: "recipe-title-\(recipeID)", in: namespace)
-                Text("Recipe detail wired by integration.")
-                    .font(.tinctaBody(14))
-                    .foregroundStyle(.white.opacity(0.7))
-            }
-            .padding(32)
-        }
-    }
-}
-
-private struct RecipeEditorPlaceholder: View {
-    var body: some View {
-        ZStack {
-            Color.tinctaParchment.ignoresSafeArea()
-            Text("Editor wired by integration")
-                .font(.tinctaBody(14))
-                .foregroundStyle(Color.tinctaInk.opacity(0.5))
+        if let recipe = recipes.first {
+            RecipeDetailView(
+                recipe: recipe,
+                onDismiss: { dismiss() },
+                onEdit: { onEdit(recipe) },
+                onShare: { onShare($0) }
+            )
+            .navigationBarBackButtonHidden(true)
+        } else {
+            // Recipe was deleted out from under us — pop.
+            Color.tinctaParchment
+                .ignoresSafeArea()
+                .onAppear { dismiss() }
         }
     }
 }
