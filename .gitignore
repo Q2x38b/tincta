@@ -37,3 +37,4 @@ Carthage/Build/
 
 ## Worktrees (built outside the repo dir; these names are defensive)
 tincta-*/
+.derivedData/
