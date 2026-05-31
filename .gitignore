@@ -1,0 +1,39 @@
+## macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+
+## Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcuserdatad/
+xcuserdata/
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+## Generated Xcode project (xcodegen owns the spec; project.yml is the source of truth)
+Tincta.xcodeproj/
+
+## Swift Package Manager
+.swiftpm/
+.build/
+Packages/
+Package.resolved
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+## CocoaPods / Carthage (not used, but ignore for safety)
+Pods/
+Carthage/Build/
+
+## IDE
+.idea/
+.vscode/
+
+## Worktrees (built outside the repo dir; these names are defensive)
+tincta-*/
