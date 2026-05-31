@@ -11,7 +11,18 @@ struct LibrarySearchView: View {
     let onPick: (Recipe) -> Void
 
     @State private var query: String = ""
+    @State private var index: [SearchEntry] = []
     @FocusState private var fieldFocused: Bool
+
+    /// Pre-built lowercased lookup for one recipe. Built once when the sheet
+    /// appears (and refreshed if the input list changes), so each keystroke
+    /// only does cheap `String.contains` calls against already-lowercased
+    /// strings — no per-keystroke .lowercased() / .sorted() work.
+    private struct SearchEntry {
+        let recipe: Recipe
+        let lowerName: String
+        let lowerIngredients: [String]   // one per ingredient, already lowercased
+    }
 
     var body: some View {
         NavigationStack {
@@ -39,7 +50,11 @@ struct LibrarySearchView: View {
                     Button("Done") { dismiss() }
                 }
             }
-            .onAppear { fieldFocused = true }
+            .onAppear {
+                fieldFocused = true
+                rebuildIndex()
+            }
+            .onChange(of: recipes) { _, _ in rebuildIndex() }
         }
     }
 
@@ -94,22 +109,37 @@ struct LibrarySearchView: View {
     private var matches: [SearchMatch] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !trimmed.isEmpty else {
-            return recipes.map { SearchMatch(recipe: $0, kind: .all) }
+            return index.map { SearchMatch(recipe: $0.recipe, kind: .all) }
         }
+        // Walk the prebuilt index — no .lowercased() or .sorted() per keystroke.
         var nameHits: [SearchMatch] = []
         var ingHits: [SearchMatch] = []
-        for recipe in recipes {
-            if recipe.name.lowercased().contains(trimmed) {
-                nameHits.append(.init(recipe: recipe, kind: .name))
+        for entry in index {
+            if entry.lowerName.contains(trimmed) {
+                nameHits.append(.init(recipe: entry.recipe, kind: .name))
                 continue
             }
-            if let hit = recipe.orderedIngredients.first(where: {
-                $0.name.lowercased().contains(trimmed)
-            }) {
-                ingHits.append(.init(recipe: recipe, kind: .ingredient(hit.name)))
+            if let idx = entry.lowerIngredients.firstIndex(where: { $0.contains(trimmed) }) {
+                // Resolve the original-cased ingredient name from the recipe
+                // for display. orderedIngredients here is the cached one.
+                let originalName = entry.recipe.orderedIngredients[idx].name
+                ingHits.append(.init(recipe: entry.recipe, kind: .ingredient(originalName)))
             }
         }
         return nameHits + ingHits
+    }
+
+    /// Pre-lowercases every recipe name + every ingredient name once. Called
+    /// on appear and whenever the input list changes. Keystroke search then
+    /// becomes a pure string-contains loop.
+    private func rebuildIndex() {
+        index = recipes.map { recipe in
+            SearchEntry(
+                recipe: recipe,
+                lowerName: recipe.name.lowercased(),
+                lowerIngredients: recipe.orderedIngredients.map { $0.name.lowercased() }
+            )
+        }
     }
 }
 

@@ -29,10 +29,6 @@ struct RecipeCardView: View {
                 .frame(maxWidth: .infinity, alignment: .center)
                 .matchedGeometryEffect(id: "recipe-title-\(recipe.id)", in: namespace)
 
-            Rectangle()
-                .fill(foreground.opacity(0.35))
-                .frame(height: 0.7)
-
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(ingredients, id: \.id) { ingredient in
                     IngredientLineText(

@@ -123,8 +123,23 @@ struct LibraryView: View {
                         RecipeCardView(recipe: recipe, namespace: cardNamespace)
                     }
                     .buttonStyle(.plain)
-                    // LATER cards stack ON TOP of earlier ones so each title
-                    // peeks above the bottom of the previous card.
+                    // Sticky-stack: when this card's top crosses the viewport's
+                    // top inset, pin it there. Later cards then slide up and
+                    // pile ON TOP (via zIndex below), so the deck visually
+                    // stacks at the top as the user scrolls. Uses iOS 17+
+                    // .scrollView coordinate space which behaves correctly
+                    // even with the parent's negative VStack spacing — the
+                    // named-coordinate-space version had subtle frame bugs
+                    // that made cards jump off-screen.
+                    .visualEffect { content, geometry in
+                        let minY = geometry.frame(in: .scrollView(axis: .vertical)).minY
+                        let stickyY: CGFloat = 64
+                        let shift = max(0, stickyY - minY)
+                        return content.offset(y: shift)
+                    }
+                    // LATER cards stack ON TOP of earlier ones — so when
+                    // they pile up at the top, the most-recent one is what's
+                    // actually visible (title-of-current-card on top).
                     .zIndex(Double(index))
                 }
 
