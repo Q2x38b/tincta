@@ -59,6 +59,9 @@ struct LibraryView: View {
                 recipe: recipe,
                 onShare: { shareRecipe = $0 }
             )
+            // Hero zoom — the system matches this id against the source on
+            // the card and expands the sheet OUT OF the card's frame.
+            .navigationTransition(.zoom(sourceID: recipe.id, in: cardNamespace))
             .presentationDragIndicator(.visible)
         }
         .sheet(item: $editorTarget) { target in

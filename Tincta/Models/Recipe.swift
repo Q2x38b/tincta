@@ -16,6 +16,9 @@ final class Recipe {
     @Relationship(deleteRule: .cascade, inverse: \DrinkLook.recipe)
     var drinkLook: DrinkLook?
 
+    @Relationship(deleteRule: .cascade, inverse: \RecipeSize.recipe)
+    var sizes: [RecipeSize] = []
+
     var createdAt: Date
     var updatedAt: Date
     var groupTags: [String]

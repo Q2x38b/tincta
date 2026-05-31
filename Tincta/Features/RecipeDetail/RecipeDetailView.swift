@@ -42,8 +42,15 @@ struct RecipeDetailView: View {
         self.onEdit = onEdit
         self.onShare = onShare
         _model = State(initialValue: DetailViewModel(
-            displayUnit: DetailViewModel.defaultDisplayUnit(for: recipe)
+            displayUnit: DetailViewModel.defaultDisplayUnit(for: recipe),
+            selectedSizeID: recipe.defaultSize?.id
         ))
+    }
+
+    /// Resolves the currently-selected `RecipeSize` (or nil = base amounts).
+    private var selectedSize: RecipeSize? {
+        guard let id = model.selectedSizeID else { return nil }
+        return recipe.orderedSizes.first { $0.id == id }
     }
 
     private var foreground: Color {
@@ -117,7 +124,7 @@ struct RecipeDetailView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(recipe.orderedIngredients, id: \.id) { ingredient in
-                    let line = model.scaledLine(for: ingredient)
+                    let line = model.scaledLine(for: ingredient, size: selectedSize)
                     IngredientLineText(
                         quantity: line.quantity,
                         unit: line.unit,
@@ -128,7 +135,49 @@ struct RecipeDetailView: View {
                     .accessibilityLabel(accessibilityLabel(for: line))
                 }
             }
+
+            // Size picker — only shown if the recipe has named variations.
+            if !recipe.orderedSizes.isEmpty {
+                sizePickerStrip
+                    .padding(.top, 4)
+            }
         }
+    }
+
+    private var sizePickerStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(recipe.orderedSizes) { size in
+                    sizeChip(size)
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    private func sizeChip(_ size: RecipeSize) -> some View {
+        let isSelected = model.selectedSizeID == size.id
+        return Button {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                model.selectedSizeID = size.id
+            }
+        } label: {
+            Text(size.name.uppercased())
+                .font(.tinctaUILabel(11))
+                .tracking(1.3)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .foregroundStyle(isSelected
+                                 ? Color(hex: recipe.backgroundColorHex)
+                                 : foreground)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(isSelected ? foreground : foreground.opacity(0.18))
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Size: \(size.name)")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private func accessibilityLabel(for line: (quantity: String, unit: String, name: String)) -> String {

@@ -10,6 +10,8 @@ enum TinctaModelContainer {
         Recipe.self,
         Ingredient.self,
         DrinkLook.self,
+        RecipeSize.self,
+        SizeAmount.self,
     ])
 
     /// Persistent on-disk container used by the live app.

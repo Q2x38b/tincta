@@ -21,9 +21,17 @@ final class DetailViewModel {
     /// How many drinks to scale up. 1...12. Multiplies every ingredient amount.
     var quantityMultiplier: Int
 
-    init(displayUnit: Unit = .oz, quantityMultiplier: Int = 1) {
+    /// User-selected named size (e.g. "Double", "Pitcher"). When set, per-
+    /// ingredient overrides on the size REPLACE the recipe's base amounts
+    /// before the QTY multiplier is applied. `nil` = use base amounts.
+    var selectedSizeID: UUID?
+
+    init(displayUnit: Unit = .oz,
+         quantityMultiplier: Int = 1,
+         selectedSizeID: UUID? = nil) {
         self.displayUnit = displayUnit
         self.quantityMultiplier = quantityMultiplier
+        self.selectedSizeID = selectedSizeID
     }
 
     // MARK: - API
@@ -40,9 +48,18 @@ final class DetailViewModel {
     ///   unit and only scaled by `quantityMultiplier`.
     /// - Non-volumetric/piece units (leaf, sprig, wedge, …) are left in their
     ///   native unit and scaled by `quantityMultiplier`.
-    func scaledLine(for ingredient: Ingredient) -> (quantity: String, unit: String, name: String) {
+    func scaledLine(for ingredient: Ingredient,
+                    size: RecipeSize? = nil) -> (quantity: String, unit: String, name: String) {
         let multiplier = Double(max(1, quantityMultiplier))
-        let baseAmount = ingredient.amount
+        // Size overrides replace the base amount per ingredient. If the size
+        // has no override for this specific ingredient, fall back to base.
+        let baseAmount: Double = {
+            if let size,
+               let override = size.amounts.first(where: { $0.ingredientID == ingredient.id }) {
+                return override.amount
+            }
+            return ingredient.amount
+        }()
         let sourceUnit = ingredient.unit
 
         // Decide the unit we'll actually render in.

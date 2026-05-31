@@ -24,8 +24,9 @@ struct RecipeCardView: View {
                 .font(.tinctaDisplay(22))
                 .tracking(0.4)
                 .foregroundStyle(foreground)
-                .multilineTextAlignment(.leading)
+                .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .center)
                 .matchedGeometryEffect(id: "recipe-title-\(recipe.id)", in: namespace)
 
             Rectangle()
@@ -71,6 +72,10 @@ struct RecipeCardView: View {
         .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
         // Tiny shadow — just enough to lift cards off the dark background.
         .shadow(color: Color.black.opacity(0.20), radius: 6, x: 0, y: 3)
+        // iOS 18+ hero-transition source. The sheet destination uses the
+        // matching id to expand the detail OUT OF this card's frame instead
+        // of doing the default slide-up-from-bottom sheet animation.
+        .matchedTransitionSource(id: recipe.id, in: namespace)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(recipe.name))
         .accessibilityHint(Text("Tap to open recipe"))

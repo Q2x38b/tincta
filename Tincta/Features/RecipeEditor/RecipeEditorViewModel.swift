@@ -46,6 +46,66 @@ struct IngredientDraft: Identifiable, Equatable {
     }
 }
 
+/// Editable per-ingredient amount under a named size variation.
+struct SizeAmountDraft: Identifiable, Equatable {
+    let id: UUID
+    /// Matches the IngredientDraft.id this override applies to.
+    var ingredientID: UUID
+    var quantityWhole: Int
+    var fraction: Fraction?
+
+    init(id: UUID = UUID(),
+         ingredientID: UUID,
+         quantityWhole: Int = 0,
+         fraction: Fraction? = nil) {
+        self.id = id
+        self.ingredientID = ingredientID
+        self.quantityWhole = quantityWhole
+        self.fraction = fraction
+    }
+
+    init(from amount: SizeAmount) {
+        self.id = amount.id
+        self.ingredientID = amount.ingredientID
+        self.quantityWhole = amount.quantityWhole
+        self.fraction = amount.fraction
+    }
+}
+
+/// Editable copy of a named size variation. Class (not struct) so the
+/// per-ingredient amounts can be mutated through bindings in the size editor.
+@Observable
+final class RecipeSizeDraft: Identifiable {
+    let id: UUID
+    var name: String
+    var sortOrder: Int
+    var isDefault: Bool
+    /// One entry per base ingredient. Index alignment is maintained by
+    /// `RecipeEditorViewModel.syncSizeAmounts(to:)` whenever the base
+    /// ingredient list changes.
+    var amounts: [SizeAmountDraft]
+
+    init(id: UUID = UUID(),
+         name: String,
+         sortOrder: Int,
+         isDefault: Bool = false,
+         amounts: [SizeAmountDraft] = []) {
+        self.id = id
+        self.name = name
+        self.sortOrder = sortOrder
+        self.isDefault = isDefault
+        self.amounts = amounts
+    }
+
+    init(from size: RecipeSize) {
+        self.id = size.id
+        self.name = size.name
+        self.sortOrder = size.sortOrder
+        self.isDefault = size.isDefault
+        self.amounts = size.amounts.map(SizeAmountDraft.init(from:))
+    }
+}
+
 /// View-model that owns a draft copy of the edited recipe's fields. Persists
 /// to SwiftData only when `save(in:)` is called; `cancel()` simply discards.
 @Observable
@@ -58,6 +118,7 @@ final class RecipeEditorViewModel {
     var credit: String
     var backgroundColorHex: String
     var ingredients: [IngredientDraft]
+    var sizes: [RecipeSizeDraft]
 
     /// Currently expanded row, if any. Tapping a row toggles this.
     var expandedIngredientID: UUID?
@@ -75,12 +136,14 @@ final class RecipeEditorViewModel {
             self.credit = r.credit ?? ""
             self.backgroundColorHex = r.backgroundColorHex
             self.ingredients = r.orderedIngredients.map(IngredientDraft.init(from:))
+            self.sizes = r.orderedSizes.map(RecipeSizeDraft.init(from:))
         } else {
             self.name = ""
             self.directions = ""
             self.credit = ""
             self.backgroundColorHex = TinctaPalette.sage.hex
             self.ingredients = []
+            self.sizes = []
         }
     }
 
@@ -125,6 +188,62 @@ final class RecipeEditorViewModel {
         )
     }
 
+    // MARK: - Size mutations
+
+    /// Add a new size variation. Pass `multiplier` to pre-fill amounts as
+    /// `base * multiplier` (snapped to standard bar fractions).
+    func addSize(name: String, multiplier: Double = 1.0) {
+        let nextOrder = (sizes.map(\.sortOrder).max() ?? -1) + 1
+        let amounts = ingredients.map { draft -> SizeAmountDraft in
+            let base = Double(draft.quantityWhole) + (draft.fraction?.value ?? 0)
+            let raw = base * multiplier
+            let whole = Int(raw)
+            let frac = raw - Double(whole)
+            let matched = Fraction.allCases.min(by: {
+                abs($0.value - frac) < abs($1.value - frac)
+            })
+            let attached: Fraction? = matched.flatMap { abs($0.value - frac) < 0.06 ? $0 : nil }
+            return SizeAmountDraft(
+                ingredientID: draft.id,
+                quantityWhole: whole,
+                fraction: attached
+            )
+        }
+        sizes.append(RecipeSizeDraft(
+            name: name,
+            sortOrder: nextOrder,
+            isDefault: sizes.isEmpty,   // first added is the default
+            amounts: amounts
+        ))
+    }
+
+    func removeSize(id: UUID) {
+        sizes.removeAll { $0.id == id }
+        // If we removed the default, promote the first remaining.
+        if !sizes.contains(where: \.isDefault), let first = sizes.first {
+            first.isDefault = true
+        }
+    }
+
+    /// Whenever the user adds/removes a base ingredient, every size has to
+    /// gain or lose its corresponding amount slot so the override map stays
+    /// in sync. Called automatically from the editor view.
+    func syncSizeAmountsToIngredients() {
+        let ingredientIDs = Set(ingredients.map(\.id))
+        for size in sizes {
+            // Drop overrides whose ingredient no longer exists.
+            size.amounts.removeAll { !ingredientIDs.contains($0.ingredientID) }
+            // Add slots for newly-added ingredients (default to base amount).
+            for ing in ingredients where !size.amounts.contains(where: { $0.ingredientID == ing.id }) {
+                size.amounts.append(SizeAmountDraft(
+                    ingredientID: ing.id,
+                    quantityWhole: ing.quantityWhole,
+                    fraction: ing.fraction
+                ))
+            }
+        }
+    }
+
     // MARK: - Persistence
 
     /// Commits the draft state to SwiftData. Creates a new Recipe (and
@@ -142,6 +261,7 @@ final class RecipeEditorViewModel {
             recipe.backgroundColorHex = backgroundColorHex
             recipe.updatedAt = now
             reconcileIngredients(on: recipe, in: context)
+            reconcileSizes(on: recipe, in: context)
         } else {
             let recipe = Recipe(
                 name: trimmedName,
@@ -158,6 +278,7 @@ final class RecipeEditorViewModel {
             context.insert(recipe)
             context.insert(look)
             attachIngredients(to: recipe, in: context)
+            attachSizes(to: recipe, in: context)
         }
 
         try? context.save()
@@ -185,6 +306,99 @@ final class RecipeEditorViewModel {
             )
             ing.recipe = recipe
             context.insert(ing)
+        }
+    }
+
+    @MainActor
+    private func attachSizes(to recipe: Recipe, in context: ModelContext) {
+        for draft in sizes {
+            let size = RecipeSize(
+                id: draft.id,
+                name: draft.name.trimmingCharacters(in: .whitespaces),
+                sortOrder: draft.sortOrder,
+                isDefault: draft.isDefault
+            )
+            size.recipe = recipe
+            context.insert(size)
+            for amountDraft in draft.amounts {
+                let amount = SizeAmount(
+                    id: amountDraft.id,
+                    ingredientID: amountDraft.ingredientID,
+                    quantityWhole: amountDraft.quantityWhole,
+                    fraction: amountDraft.fraction
+                )
+                amount.size = size
+                context.insert(amount)
+            }
+        }
+    }
+
+    @MainActor
+    private func reconcileSizes(on recipe: Recipe, in context: ModelContext) {
+        let existingByID = Dictionary(uniqueKeysWithValues: recipe.sizes.map { ($0.id, $0) })
+        let draftIDs = Set(sizes.map(\.id))
+
+        // Delete removed sizes (cascade also drops their SizeAmount children).
+        for (id, existing) in existingByID where !draftIDs.contains(id) {
+            context.delete(existing)
+        }
+
+        // Update or insert each draft.
+        for draft in sizes {
+            if let existing = existingByID[draft.id] {
+                existing.name = draft.name.trimmingCharacters(in: .whitespaces)
+                existing.sortOrder = draft.sortOrder
+                existing.isDefault = draft.isDefault
+                reconcileSizeAmounts(on: existing, draft: draft, in: context)
+            } else {
+                let size = RecipeSize(
+                    id: draft.id,
+                    name: draft.name.trimmingCharacters(in: .whitespaces),
+                    sortOrder: draft.sortOrder,
+                    isDefault: draft.isDefault
+                )
+                size.recipe = recipe
+                context.insert(size)
+                for amountDraft in draft.amounts {
+                    let amount = SizeAmount(
+                        id: amountDraft.id,
+                        ingredientID: amountDraft.ingredientID,
+                        quantityWhole: amountDraft.quantityWhole,
+                        fraction: amountDraft.fraction
+                    )
+                    amount.size = size
+                    context.insert(amount)
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func reconcileSizeAmounts(on size: RecipeSize,
+                                      draft: RecipeSizeDraft,
+                                      in context: ModelContext) {
+        let existingByID = Dictionary(uniqueKeysWithValues: size.amounts.map { ($0.id, $0) })
+        let draftIDs = Set(draft.amounts.map(\.id))
+
+        for (id, existing) in existingByID where !draftIDs.contains(id) {
+            context.delete(existing)
+        }
+
+        for amountDraft in draft.amounts {
+            if let existing = existingByID[amountDraft.id] {
+                existing.ingredientID = amountDraft.ingredientID
+                existing.quantityWhole = amountDraft.quantityWhole
+                existing.fraction = amountDraft.fraction
+            } else {
+                let amount = SizeAmount(
+                    id: amountDraft.id,
+                    ingredientID: amountDraft.ingredientID,
+                    quantityWhole: amountDraft.quantityWhole,
+                    fraction: amountDraft.fraction
+                )
+                amount.size = size
+                context.insert(amount)
+            }
         }
     }
 

@@ -15,6 +15,7 @@ struct RecipeEditorView: View {
     @State private var showDeleteConfirm = false
     @State private var showColorPicker = false
     @State private var showDrinkBuilder = false
+    @State private var editingSizeID: UUID?
     @FocusState private var nameFocused: Bool
 
     init(
@@ -43,6 +44,7 @@ struct RecipeEditorView: View {
                     VStack(alignment: .leading, spacing: 28) {
                         nameSection
                         ingredientsSection
+                        sizesSection
                         directionsSection
                         drinkImageSection
                         creditSection
@@ -97,6 +99,21 @@ struct RecipeEditorView: View {
             DrinkBuilderView(
                 look: viewModel.ensureDrinkLook(),
                 backgroundHex: viewModel.backgroundColorHex
+            )
+        }
+        // Size editor — opens when the user taps a size row.
+        .sheet(item: Binding<RecipeSizeDraft?>(
+            get: { viewModel.sizes.first(where: { $0.id == editingSizeID }) },
+            set: { _ in editingSizeID = nil }
+        )) { size in
+            SizeEditorSheet(
+                size: size,
+                ingredients: viewModel.ingredients,
+                foreground: foreground,
+                background: background,
+                onDelete: {
+                    viewModel.removeSize(id: size.id)
+                }
             )
         }
     }
@@ -213,6 +230,88 @@ struct RecipeEditorView: View {
                 .padding(.vertical, 10)
             }
         }
+    }
+
+    // MARK: - Sizes
+
+    private var sizesSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                sectionLabel("SIZES")
+                Spacer()
+                Menu {
+                    Button("Single (1×)") {
+                        viewModel.addSize(name: "Single", multiplier: 1.0)
+                        editingSizeID = viewModel.sizes.last?.id
+                    }
+                    Button("Double (2×)") {
+                        viewModel.addSize(name: "Double", multiplier: 2.0)
+                        editingSizeID = viewModel.sizes.last?.id
+                    }
+                    Button("Pitcher (8×)") {
+                        viewModel.addSize(name: "Pitcher", multiplier: 8.0)
+                        editingSizeID = viewModel.sizes.last?.id
+                    }
+                    Divider()
+                    Button("Custom…") {
+                        viewModel.addSize(name: "New Size", multiplier: 1.0)
+                        editingSizeID = viewModel.sizes.last?.id
+                    }
+                } label: {
+                    Label("Add", systemImage: "plus")
+                        .font(.tinctaUILabel(11))
+                        .tracking(1.0)
+                        .foregroundStyle(foreground)
+                }
+            }
+
+            if viewModel.sizes.isEmpty {
+                Text("Optional. Add named sizes — e.g. Double or Pitcher — each with their own ingredient amounts.")
+                    .font(.tinctaBody(13))
+                    .foregroundStyle(foreground.opacity(0.55))
+                    .padding(.top, 2)
+            } else {
+                VStack(spacing: 6) {
+                    ForEach(viewModel.sizes) { size in
+                        Button {
+                            // Keep amount slots in sync with the current
+                            // ingredient list before opening the editor.
+                            viewModel.syncSizeAmountsToIngredients()
+                            editingSizeID = size.id
+                        } label: {
+                            sizeRow(size)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
+    private func sizeRow(_ size: RecipeSizeDraft) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(size.name.isEmpty ? "Untitled" : size.name)
+                    .font(.tinctaBody(15))
+                    .foregroundStyle(foreground)
+                if size.isDefault {
+                    Text("DEFAULT")
+                        .font(.tinctaUILabel(9))
+                        .tracking(1.2)
+                        .foregroundStyle(foreground.opacity(0.55))
+                }
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(foreground.opacity(0.55))
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(foreground.opacity(0.08))
+        )
     }
 
     // MARK: - Directions
