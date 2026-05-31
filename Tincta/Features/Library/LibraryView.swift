@@ -27,6 +27,7 @@ struct LibraryView: View {
     @State private var editorTarget: EditorTarget?
     @State private var shareRecipe: Recipe?
     @State private var importPreview: ImportPreview?
+    @State private var scanSource: RecipeImportSource?
     @State private var showSettings = false
     @State private var showAbout = false
 
@@ -80,6 +81,9 @@ struct LibraryView: View {
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
             .sheet(isPresented: $showAbout) { AboutView() }
+            .sheet(item: $scanSource) { source in
+                RecipeImportFlow(source: source)
+            }
             .overlay(alignment: .topTrailing) {
                 if menuPresented {
                     MenuDropdownView(
@@ -87,7 +91,11 @@ struct LibraryView: View {
                         onSettings: { menuPresented = false; showSettings = true },
                         onShare: { menuPresented = false /* hook for shared library export later */ },
                         onImport: { menuPresented = false /* hook for paste/file picker later */ },
-                        onAbout: { menuPresented = false; showAbout = true }
+                        onAbout: { menuPresented = false; showAbout = true },
+                        onScan: { source in
+                            menuPresented = false
+                            scanSource = source
+                        }
                     )
                     .padding(.top, 76)
                     .padding(.trailing, 18)

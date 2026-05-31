@@ -23,7 +23,7 @@ public enum TinctaHaptics {
     }
 }
 
-public extension GlassButton {
+extension GlassButton {
     /// Wraps `GlassButton`'s action with a `.light` impact generator.
     /// Use in place of the bare initializer wherever the spec calls for
     /// floating chrome haptics (menu button, create button, glass chips).

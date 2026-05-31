@@ -39,21 +39,33 @@ public struct MenuDropdownView: View {
     let onShare: () -> Void
     let onImport: () -> Void
     let onAbout: () -> Void
+    let onScan: (RecipeImportSource) -> Void
 
     public init(isPresented: Binding<Bool>,
                 onSettings: @escaping () -> Void,
                 onShare: @escaping () -> Void = {},
                 onImport: @escaping () -> Void = {},
-                onAbout: @escaping () -> Void) {
+                onAbout: @escaping () -> Void,
+                onScan: @escaping (RecipeImportSource) -> Void = { _ in }) {
         self._isPresented = isPresented
         self.onSettings = onSettings
         self.onShare = onShare
         self.onImport = onImport
         self.onAbout = onAbout
+        self.onScan = onScan
     }
 
     private var items: [MenuDropdownItem] {
         [
+            .init(title: "Scan with Camera", systemImage: "camera") {
+                close { onScan(.camera) }
+            },
+            .init(title: "Pick from Photos", systemImage: "photo.on.rectangle") {
+                close { onScan(.photos) }
+            },
+            .init(title: "Choose Files", systemImage: "folder") {
+                close { onScan(.files) }
+            },
             .init(title: "Settings", systemImage: "gearshape") {
                 close { onSettings() }
             },
@@ -143,17 +155,10 @@ public struct MenuDropdownView: View {
         .shadow(color: Color.tinctaShadow, radius: 22, x: 0, y: 12)
     }
 
-    @ViewBuilder
     private var panelBackground: some View {
-        if #available(iOS 26, *) {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.clear)
-                .glassEffect(.regular,
-                             in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        } else {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial)
-        }
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .glassEffect(.regular,
+                         in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     private func close(_ then: (() -> Void)? = nil) {

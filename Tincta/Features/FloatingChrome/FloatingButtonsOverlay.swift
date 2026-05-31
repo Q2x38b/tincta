@@ -39,7 +39,7 @@ public struct FloatingButtonsOverlay: ViewModifier {
     }
 }
 
-public extension View {
+extension View {
     /// Pin a menu button (top-trailing) and create button (bottom-trailing)
     /// over the receiver. Pass `nil` to suppress either slot.
     func tinctaFloatingButtons(

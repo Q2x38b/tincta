@@ -75,17 +75,10 @@ public struct GlassDropdownMenu: View {
         return item.tint ?? .primary
     }
 
-    @ViewBuilder
     private var panelBackground: some View {
-        if #available(iOS 26, *) {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.clear)
-                .glassEffect(.regular,
-                             in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        } else {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial)
-        }
+        RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .glassEffect(.regular,
+                         in: RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 }
 

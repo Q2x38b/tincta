@@ -229,24 +229,11 @@ struct RecipeDetailView: View {
         }
     }
 
-    @ViewBuilder
     private var glassBackground: some View {
-        if #available(iOS 26, *) {
-            Capsule(style: .continuous)
-                .fill(.clear)
-                .glassEffect(.regular, in: Capsule(style: .continuous))
-                .padding(.horizontal, 12)
-                .padding(.bottom, 8)
-        } else {
-            Capsule(style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    Capsule(style: .continuous)
-                        .strokeBorder(Color.tinctaGlassStroke, lineWidth: 0.6)
-                )
-                .padding(.horizontal, 12)
-                .padding(.bottom, 8)
-        }
+        Capsule(style: .continuous)
+            .glassEffect(.regular, in: Capsule(style: .continuous))
+            .padding(.horizontal, 12)
+            .padding(.bottom, 8)
     }
 }
 
