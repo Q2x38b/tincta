@@ -122,12 +122,12 @@ public struct MenuDropdownView: View {
                             .font(.system(size: 16, weight: .semibold))
                             .frame(width: 22, alignment: .center)
                             .foregroundStyle(
-                                item.role == .destructive ? Color.red : Color.tinctaInk
+                                item.role == .destructive ? Color.red : Color.white
                             )
                         Text(item.title)
                             .font(.tinctaUILabel())
                             .foregroundStyle(
-                                item.role == .destructive ? Color.red : Color.primary
+                                item.role == .destructive ? Color.red : Color.white
                             )
                         Spacer(minLength: 8)
                         Image(systemName: "chevron.right")
@@ -156,9 +156,9 @@ public struct MenuDropdownView: View {
     }
 
     private var panelBackground: some View {
-        RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .glassEffect(.regular,
-                         in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .glassEffect(.clear,
+                         in: RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 
     private func close(_ then: (() -> Void)? = nil) {

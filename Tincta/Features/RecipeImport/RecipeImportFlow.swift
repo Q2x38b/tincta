@@ -47,13 +47,20 @@ struct RecipeImportFlow: View {
                 .padding(24)
         }
         .onAppear(perform: startSource)
-        .sheet(isPresented: $showCamera) {
-            CameraPickerView(
-                onCapture: { image in
-                    viewModel.add(images: [image])
+        .fullScreenCover(isPresented: $showCamera) {
+            // VisionKit's document scanner: edge-detection, perspective fix,
+            // multi-page capture, all in one sheet. Returns every captured
+            // page when the user taps "Save".
+            DocumentScannerView(
+                onPicked: { images in
                     showCamera = false
+                    viewModel.add(images: images)
+                    Task { await runProcess() }
                 },
-                onCancel: { showCamera = false }
+                onCancel: {
+                    showCamera = false
+                    if viewModel.images.isEmpty { dismiss() }
+                }
             )
             .ignoresSafeArea()
         }
@@ -203,10 +210,9 @@ struct RecipeImportFlow: View {
         guard case .empty = viewModel.stage else { return }
         switch source {
         case .camera:
-            // For camera we let the user take MULTIPLE photos. After each
-            // capture, the picker dismisses; we show a summary screen with
-            // "add another" / "process".
-            viewModel.stage = .capturing
+            // VisionKit scanner handles multi-page + crop inline, then hands
+            // every captured page back at once. We skip straight from .empty
+            // to .processing when it dismisses.
             showCamera = true
         case .photos:
             // Trigger the photos picker by writing to its selection binding.

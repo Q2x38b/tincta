@@ -29,6 +29,28 @@ enum TinctaModelContainer {
         }
     }
 
+    /// Async variant: opens the persistent store off-main (the expensive bit
+    /// on a cold launch) and only hops to the main actor for the seed step.
+    /// Called from `TinctaApp` so launch can paint the parchment splash
+    /// immediately instead of stalling on the synchronous M0 init.
+    static func makeSharedAsync() async -> ModelContainer {
+        let config = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: false,
+            allowsSave: true
+        )
+        let container: ModelContainer
+        do {
+            container = try ModelContainer(for: schema, configurations: [config])
+        } catch {
+            fatalError("Failed to create Tincta ModelContainer: \(error)")
+        }
+        await MainActor.run {
+            seedIfEmpty(container: container)
+        }
+        return container
+    }
+
     /// In-memory container used by previews and tests. Always pre-seeded so the
     /// preview canvas shows realistic content.
     @MainActor

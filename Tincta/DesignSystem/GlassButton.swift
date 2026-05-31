@@ -12,7 +12,7 @@ struct GlassButton: View {
     init(
         systemImage: String,
         diameter: CGFloat = 56,
-        tint: Color = .primary,
+        tint: Color = .white,
         action: @escaping () -> Void
     ) {
         self.systemImage = systemImage
@@ -27,8 +27,11 @@ struct GlassButton: View {
                 .font(.system(size: diameter * 0.42, weight: .semibold))
                 .foregroundStyle(tint)
                 .frame(width: diameter, height: diameter)
-                .glassEffect(.regular.interactive(), in: Circle())
-                .shadow(color: Color.tinctaShadow, radius: 14, x: 0, y: 6)
+                // `.clear` reads as true glass — refracts the background
+                // without adding a milky frosted layer. `.interactive()`
+                // makes it animate under press.
+                .glassEffect(.clear.interactive(), in: Circle())
+                .shadow(color: Color.black.opacity(0.32), radius: 14, x: 0, y: 6)
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)

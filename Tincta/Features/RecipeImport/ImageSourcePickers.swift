@@ -23,6 +23,10 @@ struct CameraPickerView: UIViewControllerRepresentable {
         picker.sourceType = .camera
         picker.cameraCaptureMode = .photo
         picker.delegate = context.coordinator
+        // Built-in crop step after the user taps the shutter. Returns the
+        // cropped result via `.editedImage`; we fall back to `.originalImage`
+        // if the user skips the crop.
+        picker.allowsEditing = true
         return picker
     }
 
@@ -40,7 +44,11 @@ struct CameraPickerView: UIViewControllerRepresentable {
             _ picker: UIImagePickerController,
             didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
         ) {
-            if let image = info[.originalImage] as? UIImage {
+            // Prefer the cropped version. UIImagePicker's edit screen always
+            // populates `.editedImage` when allowsEditing is true.
+            let image = (info[.editedImage] as? UIImage)
+                     ?? (info[.originalImage] as? UIImage)
+            if let image {
                 onCapture(image)
             } else {
                 onCancel()
