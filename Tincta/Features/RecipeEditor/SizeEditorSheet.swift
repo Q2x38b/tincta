@@ -75,7 +75,9 @@ struct SizeEditorSheet: View {
                     .font(.tinctaBody(14))
                     .foregroundStyle(foreground.opacity(0.55))
             } else {
-                VStack(spacing: 8) {
+                // Lazy so rows aren't built unless they're scrolled into view.
+                // For long ingredient lists this is the single biggest win.
+                LazyVStack(spacing: 8) {
                     ForEach(ingredients) { ing in
                         amountRow(for: ing)
                     }
@@ -86,9 +88,8 @@ struct SizeEditorSheet: View {
 
     private func amountRow(for ingredient: IngredientDraft) -> some View {
         let amountIdx = size.amounts.firstIndex { $0.ingredientID == ingredient.id }
-        return HStack(spacing: 10) {
-            // Ingredient name + unit
-            VStack(alignment: .leading, spacing: 1) {
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(ingredient.name.isEmpty ? "(unnamed)" : ingredient.name.uppercased())
                     .font(.tinctaUILabel(12))
                     .tracking(1.0)
@@ -96,39 +97,86 @@ struct SizeEditorSheet: View {
                 Text(ingredient.unit.display.isEmpty ? "count" : ingredient.unit.display)
                     .font(.tinctaBody(11))
                     .foregroundStyle(foreground.opacity(0.55))
+                Spacer()
+                if let idx = amountIdx {
+                    Text(quantityLabel(amounts: size.amounts[idx]))
+                        .font(.tinctaBody(15).monospacedDigit())
+                        .foregroundStyle(foreground)
+                }
             }
-            Spacer()
 
             if let idx = amountIdx {
-                // Whole-number stepper
-                Stepper(value: Binding(
-                    get: { size.amounts[idx].quantityWhole },
-                    set: { size.amounts[idx].quantityWhole = max(0, $0) }
-                ), in: 0...64) {
+                // Pure-SwiftUI stepper: two Buttons + a value display. Much
+                // cheaper to mount than UIKit's Stepper (which builds an
+                // entire UIStepper view per row).
+                HStack(spacing: 8) {
+                    stepButton(systemImage: "minus") {
+                        if size.amounts[idx].quantityWhole > 0 {
+                            size.amounts[idx].quantityWhole -= 1
+                        }
+                    }
                     Text("\(size.amounts[idx].quantityWhole)")
                         .font(.tinctaBody(15).monospacedDigit())
                         .foregroundStyle(foreground)
-                        .frame(minWidth: 22, alignment: .trailing)
-                }
-                .labelsHidden()
-
-                // Fraction picker (none, ⅛, ¼, ⅓, ½, ⅔, ¾)
-                Menu {
-                    Button("none") { size.amounts[idx].fraction = nil }
-                    ForEach(Fraction.allCases) { f in
-                        Button(f.display) { size.amounts[idx].fraction = f }
+                        .frame(width: 28)
+                    stepButton(systemImage: "plus") {
+                        if size.amounts[idx].quantityWhole < 64 {
+                            size.amounts[idx].quantityWhole += 1
+                        }
                     }
-                } label: {
-                    Text(size.amounts[idx].fraction?.display ?? "—")
-                        .font(.tinctaBody(15))
-                        .foregroundStyle(foreground)
-                        .frame(width: 36, height: 28)
-                        .background(field)
+
+                    // Inline fraction chips — no Menu, no popover.
+                    HStack(spacing: 4) {
+                        fractionChip(nil, currentIdx: idx)
+                        ForEach(Fraction.allCases) { f in
+                            fractionChip(f, currentIdx: idx)
+                        }
+                    }
+                    .padding(.leading, 4)
                 }
             }
         }
         .padding(10)
         .background(field)
+    }
+
+    @ViewBuilder
+    private func stepButton(systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(foreground)
+                .frame(width: 28, height: 28)
+                .background(field)
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func fractionChip(_ fraction: Fraction?, currentIdx idx: Int) -> some View {
+        let isSelected = size.amounts[idx].fraction == fraction
+        Button {
+            size.amounts[idx].fraction = fraction
+        } label: {
+            Text(fraction?.display ?? "—")
+                .font(.tinctaBody(13))
+                .foregroundStyle(isSelected ? background : foreground)
+                .frame(width: 26, height: 26)
+                .background(
+                    Circle()
+                        .fill(isSelected ? foreground : foreground.opacity(0.10))
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func quantityLabel(amounts: SizeAmountDraft) -> String {
+        let whole = amounts.quantityWhole
+        switch (whole, amounts.fraction) {
+        case (0, .some(let f)):     return f.display
+        case (_, .none):            return "\(whole)"
+        case (_, .some(let f)):     return "\(whole) \(f.display)"
+        }
     }
 
     private var deleteButton: some View {

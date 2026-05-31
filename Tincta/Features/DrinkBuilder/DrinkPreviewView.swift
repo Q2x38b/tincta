@@ -101,6 +101,14 @@ struct DrinkPreviewView: View {
                     extraView(e, drawSize: drawSize, origin: origin, index: idx)
                 }
             }
+            // Rasterise the entire layered composition into a single Metal
+            // texture. Without this, every sublayer (liquid + ice + vessel
+            // stroke + foot + rim ellipse + rim dust + N citrus + N garnish
+            // + extras) gets recomposed by Core Animation per frame and
+            // compiled fresh on first present — which is what made the first
+            // recipe open freeze. drawingGroup collapses it all into one
+            // bitmap so subsequent draws are cheap.
+            .drawingGroup(opaque: false, colorMode: .nonLinear)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityDescription)

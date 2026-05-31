@@ -147,27 +147,18 @@ struct RecipeEditorView: View {
     // MARK: - Drink name
 
     private var nameSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("DRINK NAME")
-            TextField(
-                "",
-                text: $viewModel.name,
-                prompt: Text("DRINK NAME")
-                    .font(.tinctaDisplay(34))
-                    .foregroundStyle(foreground.opacity(0.35))
-            )
-            .textInputAutocapitalization(.characters)
-            .autocorrectionDisabled()
-            .focused($nameFocused)
-            .font(.tinctaDisplay(34))
-            .foregroundStyle(foreground)
-            .padding(.bottom, 6)
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(foreground.opacity(0.25))
-                    .frame(height: 1)
-            }
-        }
+        TextField(
+            "",
+            text: $viewModel.name,
+            prompt: Text("Drink name")
+                .font(.tinctaDisplay(22))
+                .foregroundStyle(foreground.opacity(0.35))
+        )
+        .textInputAutocapitalization(.characters)
+        .autocorrectionDisabled()
+        .focused($nameFocused)
+        .font(.tinctaDisplay(22))
+        .foregroundStyle(foreground)
     }
 
     // MARK: - Ingredients
