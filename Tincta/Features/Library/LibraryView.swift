@@ -57,7 +57,6 @@ struct LibraryView: View {
         .sheet(item: $detailRecipe) { recipe in
             RecipeDetailSheet(
                 recipe: recipe,
-                onEdit: { editorTarget = .existing(recipe) },
                 onShare: { shareRecipe = $0 }
             )
             .presentationDragIndicator(.visible)
@@ -103,10 +102,16 @@ struct LibraryView: View {
             }
             .frame(height: 0)
 
-            LazyVStack(spacing: -cardOverlap) {
-                // Top spacing so the first card sits BELOW the floating
-                // buttons in the safe area, not under them.
-                Color.clear.frame(height: 88)
+            // Plain VStack (not Lazy): the negative inter-item spacing collides
+            // with LazyVStack's culling and makes cards disappear inside the
+            // viewport. With a handful of recipes, eager rendering is fine.
+            VStack(spacing: -cardOverlap) {
+                // Top spacer has to absorb both the safe-area / floating-chrome
+                // offset (~88pt) AND the negative spacing the VStack applies
+                // between this spacer and the first card (~cardOverlap). Without
+                // that compensation the first card pulls UP into the spacer and
+                // gets clipped above the visible scroll area.
+                Color.clear.frame(height: 88 + cardOverlap)
 
                 ForEach(Array(displayedRecipes.enumerated()), id: \.element.id) { index, recipe in
                     Button {
@@ -120,11 +125,13 @@ struct LibraryView: View {
                     .zIndex(Double(index))
                 }
 
-                // Trailing spacing so the last card doesn't hug the bottom edge.
                 Color.clear.frame(height: cardOverlap + 80)
             }
             .padding(.horizontal, 14)
         }
+        // Allow cards to render past the ScrollView's clip bounds so they
+        // don't pop in/out at the viewport edges.
+        .scrollClipDisabled()
         .scrollIndicators(.hidden)
         .coordinateSpace(name: "library-scroll")
         .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
@@ -217,20 +224,26 @@ enum EditorTarget: Identifiable {
 // MARK: - Recipe detail sheet
 
 /// Adapter that renders `RecipeDetailView` inside a sheet, wiring the chevron
-/// dismiss to the sheet's own `dismiss` action.
+/// dismiss to the sheet's own `dismiss` action and presenting the EDIT flow
+/// as a stacked sheet on top of itself (so tapping Edit opens immediately
+/// instead of waiting for the detail sheet to be closed first).
 struct RecipeDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
     let recipe: Recipe
-    let onEdit: () -> Void
     let onShare: (Recipe) -> Void
+
+    @State private var showEditor = false
 
     var body: some View {
         RecipeDetailView(
             recipe: recipe,
             onDismiss: { dismiss() },
-            onEdit: onEdit,
+            onEdit: { showEditor = true },
             onShare: onShare
         )
+        .sheet(isPresented: $showEditor) {
+            RecipeEditorView(recipe: recipe)
+        }
     }
 }
 

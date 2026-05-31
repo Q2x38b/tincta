@@ -48,6 +48,25 @@ struct ParsedIngredient {
 /// data leaves the user's phone.
 enum RecipeParser {
 
+    /// Touch `SystemLanguageModel.default` and prepare a session early so
+    /// the first real scan doesn't pay the cold-start cost. Safe to call
+    /// from a background task at app launch.
+    static func prewarm() async {
+        // Querying availability is enough to trigger the framework's lazy
+        // init paths (loading model metadata, starting Apple Intelligence
+        // services). We deliberately don't actually run inference here.
+        _ = SystemLanguageModel.default.availability
+        // Construct + warm a session if the model is ready. The session
+        // builds compiler context which is the slow part on first use.
+        guard isAvailable else { return }
+        // Constructing the session triggers tokenizer/adapter init. We keep
+        // it briefly via `_` so the compiler can't optimise it away.
+        let session = LanguageModelSession(instructions: Self.systemInstructions)
+        session.prewarm()
+        _ = session
+    }
+
+
     /// Whether the on-device model is currently available on this device.
     /// Returns false on devices without Apple Intelligence, when the OS is
     /// downloading model assets, or when the user has it disabled.

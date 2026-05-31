@@ -33,6 +33,8 @@ targets:
       properties:
         UILaunchScreen:
           UIColorName: LaunchBackground
+          UIImageName: LaunchLogo
+          UIImageRespectsSafeAreaInsets: true
         UIApplicationSupportsIndirectInputEvents: YES
         UISupportedInterfaceOrientations~iphone:
           - UIInterfaceOrientationPortrait

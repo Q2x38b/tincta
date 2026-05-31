@@ -21,9 +21,8 @@ struct RecipeCardView: View {
 
         VStack(alignment: .leading, spacing: 18) {
             Text(recipe.name.uppercased())
-                .font(.tinctaDisplay(34))
-                .tracking(-0.3)
-                .lineSpacing(-4)
+                .font(.tinctaDisplay(22))
+                .tracking(0.4)
                 .foregroundStyle(foreground)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)

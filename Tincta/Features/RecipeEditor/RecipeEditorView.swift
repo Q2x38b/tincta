@@ -57,7 +57,10 @@ struct RecipeEditorView: View {
                 }
             }
         }
-        .preferredColorScheme(foreground == .white ? .dark : .light)
+        // NB: deliberately NOT calling .preferredColorScheme(...) here.
+        // Flipping the scene's color scheme on every background change
+        // forces UIKit to recreate TextEditor + wheel pickers under the
+        // hood, which is what caused the ~10s freeze on color picks.
         .alert("Delete recipe?", isPresented: $showDeleteConfirm) {
             Button("Delete", role: .destructive) {
                 viewModel.delete(in: modelContext)
@@ -74,8 +77,15 @@ struct RecipeEditorView: View {
             ColorPickerView(
                 initialHex: viewModel.backgroundColorHex,
                 onSelect: { swatch in
-                    viewModel.backgroundColorHex = swatch.hex
+                    // Dismiss FIRST, then apply the color on the next runloop.
+                    // If we mutate state in the same tick as the dismiss, the
+                    // editor body re-renders while the sheet is still animating
+                    // away — and on a real device the heavy editor body can
+                    // freeze the dismissal animation noticeably.
                     showColorPicker = false
+                    DispatchQueue.main.async {
+                        viewModel.backgroundColorHex = swatch.hex
+                    }
                 },
                 onCancel: { showColorPicker = false }
             )

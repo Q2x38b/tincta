@@ -12,6 +12,15 @@ struct TinctaApp: App {
 
     init() {
         launchLog.notice("TinctaApp.init")
+        // Kick off Foundation Models prewarm on a low-priority background
+        // task so the heavy framework load + first-session init is amortised
+        // across the time the user spends browsing the library. By the time
+        // they tap "Scan", inference is hot. Detached so it never blocks
+        // SwiftUI's main scene init.
+        Task.detached(priority: .background) {
+            await RecipeParser.prewarm()
+            launchLog.notice("RecipeParser.prewarm complete")
+        }
     }
 
     var body: some Scene {
