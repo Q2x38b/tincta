@@ -149,24 +149,16 @@ enum TransferCodec {
 
     // MARK: - Link helpers
 
-    /// Universal HTTPS link form. Lives on the marketing host so it opens the
-    /// app via associated domains when installed and a web preview otherwise.
-    static let universalLinkHost: String = "tincta.app"
-    static let universalLinkPathPrefix: String = "/r/"
+    /// Custom URL scheme owned by the Tincta app via its Info.plist
+    /// CFBundleURLTypes. Used for the only deep-link form we generate now —
+    /// HTTPS universal links are intentionally not produced since no domain
+    /// is owned to back them.
     static let customScheme: String = "tincta"
 
-    /// Builds an HTTPS deep link of the form `https://tincta.app/r/<token>`.
-    static func universalLink(forToken token: String) -> URL? {
-        var components = URLComponents()
-        components.scheme = "https"
-        components.host = universalLinkHost
-        components.path = universalLinkPathPrefix + token
-        return components.url
-    }
-
-    /// Builds the custom-scheme fallback `tincta://import?data=<token>` for
-    /// situations where the universal link can't resolve (e.g. shared in a
-    /// context that strips associated domains).
+    /// Builds the only share link form: `tincta://import?data=<token>`.
+    /// Other people who have Tincta installed will open it directly; people
+    /// without Tincta should be given the raw token to paste in via the
+    /// in-app "Paste Code" entry.
     static func customSchemeLink(forToken token: String) -> URL? {
         var components = URLComponents()
         components.scheme = customScheme

@@ -9,14 +9,9 @@ import UIKit
 /// model only holds UI-derived state so previews and unit tests stay light.
 @Observable
 final class LibraryViewModel {
-    /// Current search query string. Used by the inline filter (still wired
-    /// up so previews work) — the main search now lives in `LibrarySearchView`.
+    /// Current search query string. Live-bound to the inline search bar's
+    /// TextField — the card list re-filters as the user types.
     var searchText: String = ""
-
-    /// Legacy flag kept so existing code paths compile. The current Library
-    /// no longer renders the inline overlay; the pull gesture opens
-    /// `LibrarySearchView` instead.
-    var isSearchPresented: Bool = false
 
     // MARK: - Pull-down-to-search
 
@@ -53,25 +48,54 @@ final class LibraryViewModel {
 
     // MARK: - Search filter
 
-    /// Case-insensitive contains check across name, ingredients, and tags.
-    func matches(_ recipe: Recipe, query rawQuery: String) -> Bool {
-        let query = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !query.isEmpty else { return true }
-        if recipe.name.lowercased().contains(query) { return true }
-        if recipe.groupTags.contains(where: { $0.lowercased().contains(query) }) {
-            return true
-        }
-        if recipe.orderedIngredients.contains(where: { $0.name.lowercased().contains(query) }) {
-            return true
-        }
-        return false
+    /// What part of the recipe a query matched against. Drives the
+    /// "Contains X" badge rendered on cards that matched on something
+    /// other than the recipe name.
+    enum MatchKind: Equatable {
+        case name
+        case ingredient(String)
+        case tag(String)
     }
 
-    /// Applies the current search query to a list of recipes.
+    /// Returns the strongest match kind for `recipe` against the query, or
+    /// nil if no part matched. Name beats ingredient beats tag.
+    func match(_ recipe: Recipe, query rawQuery: String) -> MatchKind? {
+        let query = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !query.isEmpty else { return .name }
+        if recipe.name.lowercased().contains(query) {
+            return .name
+        }
+        if let ing = recipe.orderedIngredients.first(where: {
+            $0.name.lowercased().contains(query)
+        }) {
+            return .ingredient(ing.name)
+        }
+        if let tag = recipe.groupTags.first(where: { $0.lowercased().contains(query) }) {
+            return .tag(tag)
+        }
+        return nil
+    }
+
+    /// Convenience boolean wrapper for places that just want yes/no.
+    func matches(_ recipe: Recipe, query rawQuery: String) -> Bool {
+        match(recipe, query: rawQuery) != nil
+    }
+
+    /// Applies the current search query and returns each matching recipe
+    /// paired with WHAT matched. Empty query → every recipe with .name.
+    func filteredWithMatches(_ recipes: [Recipe]) -> [(Recipe, MatchKind)] {
+        let raw = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if raw.isEmpty {
+            return recipes.map { ($0, .name) }
+        }
+        return recipes.compactMap { recipe in
+            match(recipe, query: raw).map { (recipe, $0) }
+        }
+    }
+
+    /// Back-compat: applies the query and returns just the recipes.
     func filtered(_ recipes: [Recipe]) -> [Recipe] {
-        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return recipes }
-        return recipes.filter { matches($0, query: query) }
+        filteredWithMatches(recipes).map(\.0)
     }
 
     // MARK: - Scroll handler
@@ -119,9 +143,4 @@ final class LibraryViewModel {
         shouldOpenSearch = false
     }
 
-    /// Legacy — kept so the inline-overlay code path doesn't break.
-    func dismissSearch() {
-        isSearchPresented = false
-        searchText = ""
-    }
 }

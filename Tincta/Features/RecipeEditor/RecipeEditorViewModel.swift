@@ -148,10 +148,20 @@ final class RecipeEditorViewModel {
             self.name = ""
             self.directions = ""
             self.credit = ""
-            self.backgroundColorHex = TinctaPalette.sage.hex
+            // Random swatch from the curated palette every time you open
+            // a fresh editor. Skips the very-pale cream variants so the
+            // default-contrast text is always readable.
+            self.backgroundColorHex = Self.randomNewRecipeColor()
             self.ingredients = []
             self.sizes = []
         }
+    }
+
+    private static func randomNewRecipeColor() -> String {
+        let usable = TinctaPalette.all.filter { swatch in
+            swatch.family != .cream  // creams are too pale for readable text
+        }
+        return (usable.randomElement() ?? TinctaPalette.sage).hex
     }
 
     var isEditingExisting: Bool { editingRecipe != nil }

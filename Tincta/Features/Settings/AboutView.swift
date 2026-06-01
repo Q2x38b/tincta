@@ -53,12 +53,8 @@ public struct AboutView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 20)
 
-                // Links
+                // Links — just the privacy line now.
                 VStack(spacing: 0) {
-                    aboutRow(icon: "globe", title: "Website", subtitle: "tincta.app")
-                    Divider().padding(.leading, 52)
-                    aboutRow(icon: "envelope", title: "Contact", subtitle: "hello@tincta.app")
-                    Divider().padding(.leading, 52)
                     aboutRow(icon: "hand.raised", title: "Privacy", subtitle: "Your recipes stay on-device.")
                 }
                 .background(

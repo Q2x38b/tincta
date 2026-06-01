@@ -85,7 +85,7 @@ struct ShareableRecipeCard: View {
     private var footer: some View {
         HStack {
             Spacer()
-            Text("tincta.app")
+            Text("Tincta")
                 .font(.tinctaUILabel(width * 0.022))
                 .opacity(0.55)
         }

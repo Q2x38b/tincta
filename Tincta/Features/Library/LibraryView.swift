@@ -25,7 +25,10 @@ struct LibraryView: View {
     @State private var scanSource: RecipeImportSource?
     @State private var showSettings = false
     @State private var showAbout = false
-    @State private var showSearch = false
+    /// Inline search bar visible state. Toggled by the search GlassChip
+    /// AND by the pull-down-to-search gesture. NOT a sheet anymore.
+    @State private var showInlineSearch = false
+    @FocusState private var searchFieldFocused: Bool
 
     /// Vertical overlap between consecutive cards. Cards now have a
     /// minHeight of 280pt and grow with ingredient count. Overlap of ~150pt
@@ -48,13 +51,15 @@ struct LibraryView: View {
             floatingControls
                 .zIndex(3)
         }
-        // Watch the trigger flag set by the view-model when the user
-        // releases an overscroll past the threshold. We open the search
-        // sheet and clear the flag so the next pull can fire again.
+        // Pull-down-to-search trigger from the view-model now expands the
+        // INLINE search bar in place rather than opening a separate sheet.
         .onChange(of: viewModel.shouldOpenSearch) { _, newValue in
             if newValue {
                 viewModel.clearOpenSearchTrigger()
-                showSearch = true
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
+                    showInlineSearch = true
+                }
+                searchFieldFocused = true
             }
         }
         // Recipe detail as a card sheet so swipe-down dismisses it like a stack
@@ -92,12 +97,8 @@ struct LibraryView: View {
         .sheet(item: $scanSource) { source in
             RecipeImportFlow(source: source)
         }
-        .sheet(isPresented: $showSearch) {
-            LibrarySearchView(recipes: recipes) { recipe in
-                showSearch = false
-                detailRecipe = recipe
-            }
-        }
+        // Search is now an inline filter bar inside `cardStack` — no
+        // separate sheet. See `inlineSearchBar` below.
         .handleTinctaImportLink(into: modelContext, presented: $importPreview)
     }
 
@@ -126,8 +127,11 @@ struct LibraryView: View {
 
     // MARK: - Card stack
 
-    private var displayedRecipes: [Recipe] {
-        viewModel.filtered(recipes)
+    /// Recipes paired with WHY they matched the active search query (.name
+    /// when no query is active). The "Contains X" badge on each card reads
+    /// this hint.
+    private var displayedRecipes: [(Recipe, LibraryViewModel.MatchKind)] {
+        viewModel.filteredWithMatches(recipes)
     }
 
     /// Per-card sticky-pin + fading-shadow wrapper. Extracted out of
@@ -135,7 +139,7 @@ struct LibraryView: View {
     /// the chained .visualEffect + .offset + two .shadow modifiers were
     /// pushing the parent body over the type-checker's complexity budget.
     @ViewBuilder
-    private func stickyCard(recipe: Recipe, index: Int) -> some View {
+    private func stickyCard(recipe: Recipe, index: Int, matchHint: LibraryViewModel.MatchKind) -> some View {
         let stickyY: CGFloat = 64
         // Drop-shadow as a SEPARATE background layer behind the card so we
         // can fade it via .visualEffect.opacity (which is supported —
@@ -158,7 +162,11 @@ struct LibraryView: View {
         Button {
             detailRecipe = recipe
         } label: {
-            RecipeCardView(recipe: recipe, namespace: cardNamespace)
+            RecipeCardView(
+                recipe: recipe,
+                namespace: cardNamespace,
+                matchHint: matchHint
+            )
         }
         .buttonStyle(.plain)
         .background(shadowLayer)
@@ -195,8 +203,14 @@ struct LibraryView: View {
                 // gets clipped above the visible scroll area.
                 Color.clear.frame(height: 88 + cardOverlap)
 
-                ForEach(Array(displayedRecipes.enumerated()), id: \.element.id) { index, recipe in
-                    stickyCard(recipe: recipe, index: index)
+                ForEach(Array(displayedRecipes.enumerated()), id: \.element.0.id) { index, pair in
+                    stickyCard(recipe: pair.0, index: index, matchHint: pair.1)
+                }
+
+                if displayedRecipes.isEmpty && !viewModel.searchText.trimmingCharacters(in: .whitespaces).isEmpty {
+                    emptySearchState
+                        .padding(.top, cardOverlap + 24)
+                        .padding(.horizontal, 32)
                 }
 
                 Color.clear.frame(height: cardOverlap + 80)
@@ -221,49 +235,189 @@ struct LibraryView: View {
     /// dropdown — no more floating + button.
     private var floatingControls: some View {
         HStack {
-            Button {
-                showSearch = true
-            } label: {
-                GlassChip(systemImage: "magnifyingglass")
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Search recipes")
-            .padding(.leading, 18)
-
-            Spacer()
-
-            Menu {
+            if showInlineSearch {
+                inlineSearchBar
+                    .padding(.horizontal, 18)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            } else {
                 Button {
-                    editorTarget = .new
-                } label: { Label("New Recipe", systemImage: "plus") }
-                Section {
-                    Button {
-                        scanSource = .camera
-                    } label: { Label("Scan with Camera", systemImage: "camera") }
-                    Button {
-                        scanSource = .photos
-                    } label: { Label("Pick from Photos", systemImage: "photo.on.rectangle") }
-                    Button {
-                        scanSource = .files
-                    } label: { Label("Choose Files", systemImage: "folder") }
+                    openInlineSearch()
+                } label: {
+                    GlassChip(systemImage: "magnifyingglass")
                 }
-                Section {
+                .buttonStyle(.plain)
+                .accessibilityLabel("Search recipes")
+                .padding(.leading, 18)
+
+                Spacer()
+
+                Menu {
                     Button {
-                        showSettings = true
-                    } label: { Label("Settings", systemImage: "gearshape") }
-                    Button {
-                        showAbout = true
-                    } label: { Label("About", systemImage: "info.circle") }
+                        editorTarget = .new
+                    } label: { Label("New Recipe", systemImage: "plus") }
+                    Section {
+                        Button {
+                            scanSource = .camera
+                        } label: { Label("Scan with Camera", systemImage: "camera") }
+                        Button {
+                            scanSource = .photos
+                        } label: { Label("Pick from Photos", systemImage: "photo.on.rectangle") }
+                        Button {
+                            scanSource = .files
+                        } label: { Label("Choose Files", systemImage: "folder") }
+                        Button {
+                            pasteImportCode()
+                        } label: { Label("Paste Code", systemImage: "doc.on.clipboard") }
+                    }
+                    Section {
+                        Button {
+                            showSettings = true
+                        } label: { Label("Settings", systemImage: "gearshape") }
+                        Button {
+                            showAbout = true
+                        } label: { Label("About", systemImage: "info.circle") }
+                    }
+                } label: {
+                    GlassChip(systemImage: "ellipsis")
                 }
-            } label: {
-                GlassChip(systemImage: "ellipsis")
+                .menuStyle(.button)
+                .accessibilityLabel("Library menu")
+                .padding(.trailing, 18)
             }
-            .menuStyle(.button)
-            .accessibilityLabel("Library menu")
-            .padding(.trailing, 18)
         }
         .padding(.top, 12)
         .frame(maxHeight: .infinity, alignment: .top)
+        .animation(.spring(response: 0.32, dampingFraction: 0.85), value: showInlineSearch)
+        .alert(
+            pasteAlertTitle ?? "",
+            isPresented: Binding(
+                get: { pasteAlertTitle != nil },
+                set: { if !$0 { pasteAlertTitle = nil; pasteAlertMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            if let msg = pasteAlertMessage { Text(msg) }
+        }
+    }
+
+    // MARK: - Inline search
+
+    /// Search bar that takes the place of the floating chips when active.
+    /// Liquid-glass capsule with a focused TextField + Cancel. As the user
+    /// types, `viewModel.filteredWithMatches` re-runs and the card list
+    /// (and each card's "Contains X" badge) updates in place.
+    private var inlineSearchBar: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                TextField("Search recipes", text: $viewModel.searchText)
+                    .font(.tinctaUILabel(15))
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled(true)
+                    .submitLabel(.search)
+                    .focused($searchFieldFocused)
+                if !viewModel.searchText.isEmpty {
+                    Button {
+                        viewModel.searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Clear search")
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .glassEffect(.clear.interactive(), in: Capsule(style: .continuous))
+
+            Button("Cancel") {
+                closeInlineSearch()
+            }
+            .font(.tinctaUILabel(15))
+            .foregroundStyle(Color.white)
+        }
+    }
+
+    /// Shown inside the scroll content when a query returns zero recipes,
+    /// so the user gets feedback instead of staring at an empty deck.
+    private var emptySearchState: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 28, weight: .light))
+                .foregroundStyle(.white.opacity(0.55))
+            Text("No matches")
+                .font(.tinctaDisplay(20))
+                .foregroundStyle(.white.opacity(0.85))
+            Text("Nothing in your library matches \u{201C}\(viewModel.searchText)\u{201D}.")
+                .font(.tinctaBody(14))
+                .foregroundStyle(.white.opacity(0.55))
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func openInlineSearch() {
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
+            showInlineSearch = true
+        }
+        searchFieldFocused = true
+    }
+
+    private func closeInlineSearch() {
+        searchFieldFocused = false
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
+            showInlineSearch = false
+            viewModel.searchText = ""
+        }
+    }
+
+    // MARK: - Paste import
+
+    @State private var pasteAlertTitle: String?
+    @State private var pasteAlertMessage: String?
+
+    /// Reads the clipboard and tries to interpret it as a Tincta transfer
+    /// code OR a `tincta://import?data=` URL. Surfaces success/failure via
+    /// a short alert and presents the standard import preview sheet on
+    /// success. Pure local — nothing leaves the device.
+    private func pasteImportCode() {
+        #if canImport(UIKit)
+        let raw = UIPasteboard.general.string?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !raw.isEmpty else {
+            pasteAlertTitle = "Clipboard Empty"
+            pasteAlertMessage = "Copy a Tincta share code first, then try Paste Code again."
+            return
+        }
+
+        // Try the URL form first; fall back to treating the whole string as
+        // a bare token. The router only knows the tincta:// scheme, so any
+        // legacy https://tincta.app/r/<token> link in someone's clipboard
+        // gets stripped down to its token suffix here.
+        let token: String
+        if let url = URL(string: raw), let extracted = UniversalLinkRouter.extractToken(from: url) {
+            token = extracted
+        } else if let url = URL(string: raw),
+                  url.scheme?.lowercased() == "https",
+                  let path = url.pathComponents.last, !path.isEmpty,
+                  url.pathComponents.contains("r") {
+            token = path
+        } else {
+            token = raw
+        }
+
+        do {
+            let transfer = try TransferCodec.decode(token)
+            importPreview = ImportPreview(transfer: transfer)
+        } catch {
+            pasteAlertTitle = "Couldn't Read Code"
+            pasteAlertMessage = "That doesn't look like a Tincta share code. Make sure you've copied the full code."
+        }
+        #endif
     }
 }
 

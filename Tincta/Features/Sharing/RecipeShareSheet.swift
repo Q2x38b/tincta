@@ -14,6 +14,12 @@ struct RecipeShareSheet: View {
 
     @State private var renderedImage: ShareableImage?
     @State private var shareLink: URL?
+    /// Raw base64 token, separate from the URL form. Pasted directly into
+    /// the recipient's Tincta via "Paste Code" — works even when their iOS
+    /// strips custom-scheme URLs from the chat (some clients refuse to
+    /// link `tincta://` for users who don't have the app installed).
+    @State private var shareToken: String?
+    @State private var copiedToken: Bool = false
     @State private var encodingError: String?
 
     init(recipe: Recipe) {
@@ -56,7 +62,7 @@ struct RecipeShareSheet: View {
     @ViewBuilder
     private var actions: some View {
         VStack(spacing: 12) {
-            if let shareLink, let renderedImage {
+            if let shareLink, let shareToken, let renderedImage {
                 ShareLink(
                     item: shareLink,
                     subject: Text(recipe.name),
@@ -92,6 +98,35 @@ struct RecipeShareSheet: View {
                                 title: "Share Link Only")
                 }
                 .buttonStyle(.bordered)
+
+                // Plain-text token. Friends paste this into Library → ⋯ →
+                // Paste Code. Always works — no app install or deep-link
+                // routing required to deliver it.
+                ShareLink(
+                    item: shareToken,
+                    subject: Text(recipe.name),
+                    message: Text("Paste this code into Tincta → ⋯ → Paste Code")
+                ) {
+                    actionLabel(systemImage: "doc.on.doc",
+                                title: "Share Code (Text)")
+                }
+                .buttonStyle(.bordered)
+
+                #if canImport(UIKit)
+                Button {
+                    UIPasteboard.general.string = shareToken
+                    copiedToken = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+                        copiedToken = false
+                    }
+                } label: {
+                    actionLabel(
+                        systemImage: copiedToken ? "checkmark" : "clipboard",
+                        title: copiedToken ? "Copied to Clipboard" : "Copy Code"
+                    )
+                }
+                .buttonStyle(.bordered)
+                #endif
             } else if let encodingError {
                 Text(encodingError)
                     .font(.tinctaBody(14))
@@ -125,8 +160,8 @@ struct RecipeShareSheet: View {
             let token = try TransferCodec.encode(transfer: RecipeTransfer(
                 recipes: [RecipePayload(recipe: recipe)]
             ))
-            shareLink = TransferCodec.universalLink(forToken: token)
-                ?? TransferCodec.customSchemeLink(forToken: token)
+            shareToken = token
+            shareLink = TransferCodec.customSchemeLink(forToken: token)
         } catch {
             encodingError = "Couldn't build a share link: \(error.localizedDescription)"
         }

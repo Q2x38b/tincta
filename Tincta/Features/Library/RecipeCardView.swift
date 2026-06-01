@@ -8,6 +8,11 @@ import SwiftData
 struct RecipeCardView: View {
     let recipe: Recipe
     let namespace: Namespace.ID
+    /// Optional match info from a filter pass. When set to .ingredient(name)
+    /// or .tag(name), the card renders a small "Contains X" badge so the
+    /// user can see WHY this card matched their search query. Pass nil for
+    /// non-search contexts (eg. the natural Library scroll).
+    var matchHint: LibraryViewModel.MatchKind? = nil
 
     /// Hard ceiling so a 20-ingredient recipe doesn't make a card the
     /// size of the screen. Most recipes have 3-5 ingredients so this
@@ -34,6 +39,23 @@ struct RecipeCardView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .center)
                 .matchedGeometryEffect(id: "recipe-title-\(recipe.id)", in: namespace)
+
+            // "Contains X" badge — only when the active search matched on
+            // an ingredient or tag (not on the recipe name itself), so the
+            // user can see WHY this card came back. Centered under the
+            // title, tone-on-tone with the card colour.
+            if let containsLabel {
+                Text(containsLabel)
+                    .font(.tinctaUILabel(11))
+                    .foregroundStyle(ingredientColor)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule(style: .continuous)
+                            .strokeBorder(ingredientColor.opacity(0.45), lineWidth: 0.8)
+                    )
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
 
             // Reduced inter-line spacing 8 → 4 so the ingredient block reads
             // as one tight block rather than a loose list.
@@ -82,6 +104,21 @@ struct RecipeCardView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(recipe.name))
         .accessibilityHint(Text("Tap to open recipe"))
+    }
+
+    /// Returns the "Contains X" string to show under the title when the
+    /// active search matched on something other than the recipe name.
+    /// Returns nil for `.name` matches and when no hint is provided —
+    /// the badge stays hidden in those cases.
+    private var containsLabel: String? {
+        switch matchHint {
+        case .ingredient(let name):
+            return "Contains \(name)"
+        case .tag(let tag):
+            return "Tagged \(tag)"
+        case .name, nil:
+            return nil
+        }
     }
 }
 

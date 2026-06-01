@@ -41,21 +41,11 @@ enum UniversalLinkRouter {
         }
     }
 
-    /// Pulls the base64 token out of either link shape. Public so callers that
-    /// only need the raw token (e.g. tests, logging) can use it directly.
+    /// Pulls the base64 token out of the Tincta custom-scheme URL form. The
+    /// previous HTTPS universal-link form was retired (no domain is owned to
+    /// back it).
     static func extractToken(from url: URL) -> String? {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
-            return nil
-        }
-
-        // Universal link: https://tincta.app/r/<token>
-        if let host = components.host?.lowercased(),
-           host == TransferCodec.universalLinkHost {
-            let path = components.path
-            if path.hasPrefix(TransferCodec.universalLinkPathPrefix) {
-                let token = String(path.dropFirst(TransferCodec.universalLinkPathPrefix.count))
-                return token.isEmpty ? nil : token
-            }
             return nil
         }
 
