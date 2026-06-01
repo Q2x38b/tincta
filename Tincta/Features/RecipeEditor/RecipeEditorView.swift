@@ -47,7 +47,6 @@ struct RecipeEditorView: View {
                         sizesSection
                         directionsSection
                         drinkImageSection
-                        creditSection
                         backgroundColorRow
                         if viewModel.isEditingExisting {
                             deleteButton
@@ -58,7 +57,18 @@ struct RecipeEditorView: View {
                     .padding(.bottom, 48)
                 }
             }
+
+            // Deleted overlay — once viewModel.isDeleted goes true the
+            // editor stays open but swaps to this calm card explaining
+            // what happened. The parent detail sheet behind us also
+            // remains open, holding the recipe's cached values.
+            // User taps Close to dismiss the editor on their own terms.
+            if viewModel.isDeleted {
+                deletedOverlay
+                    .transition(.opacity.combined(with: .scale(scale: 0.97)))
+            }
         }
+        .animation(.spring(response: 0.32, dampingFraction: 0.85), value: viewModel.isDeleted)
         // NB: deliberately NOT calling .preferredColorScheme(...) here.
         // Flipping the scene's color scheme on every background change
         // forces UIKit to recreate TextEditor + wheel pickers under the
@@ -67,7 +77,10 @@ struct RecipeEditorView: View {
             Button("Delete", role: .destructive) {
                 viewModel.delete(in: modelContext)
                 onDelete?()
-                dismiss()
+                // Deliberately NOT calling dismiss() — leaves the user in
+                // the editor (deletedOverlay takes over) with the parent
+                // detail sheet still visible behind it. They close on
+                // their own terms.
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -345,12 +358,53 @@ struct RecipeEditorView: View {
 
     // MARK: - Credit
 
-    /// Extracted into its own subview (CreditField) below — same reason as
-    /// DirectionsField. Typing in the credit TextField was triggering a
-    /// full editor-body recompute per keystroke (ingredients + sizes +
-    /// DrinkPreview + everything), which was the lag.
-    private var creditSection: some View {
-        CreditField(text: $viewModel.credit, foreground: foreground)
+    // Credit section removed entirely from the UI. The Recipe model still
+    // has the `credit: String?` property so existing data isn't migrated
+    // away, but no view reads or writes it anymore.
+
+    // MARK: - Deleted overlay
+
+    private var deletedOverlay: some View {
+        ZStack {
+            Color.tinctaInk.opacity(0.78).ignoresSafeArea()
+            VStack(spacing: 18) {
+                Image(systemName: "trash.fill")
+                    .font(.system(size: 38, weight: .light))
+                    .foregroundStyle(.white.opacity(0.75))
+                Text("Recipe deleted")
+                    .font(.tinctaDisplay(22))
+                    .foregroundStyle(.white)
+                Text("\(viewModel.name.trimmingCharacters(in: .whitespaces)) is gone from your library.")
+                    .font(.tinctaBody(14))
+                    .foregroundStyle(.white.opacity(0.65))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+                Button {
+                    dismiss()
+                } label: {
+                    Text("Close")
+                        .font(.tinctaUILabel(15))
+                        .foregroundStyle(Color.tinctaInk)
+                        .frame(minWidth: 140)
+                        .padding(.vertical, 12)
+                        .background(Capsule().fill(Color.white))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 6)
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 30)
+            .background(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(Color.tinctaInk)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.15), lineWidth: 1)
+            )
+            .padding(.horizontal, 30)
+            .shadow(color: .black.opacity(0.4), radius: 22, x: 0, y: 12)
+        }
     }
 
     // MARK: - Color row
@@ -409,41 +463,6 @@ struct RecipeEditorView: View {
         Text(text)
             .font(.tinctaUILabel(13))
             .foregroundStyle(foreground.opacity(0.65))
-    }
-}
-
-// MARK: - CreditField
-
-/// Same trick as DirectionsField below — standalone subview that owns
-/// only the binding + foreground colour, so typing in the credit field
-/// re-evaluates THIS subview only, not the entire editor body.
-private struct CreditField: View {
-    @Binding var text: String
-    let foreground: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Recipe credit")
-                .font(.tinctaUILabel(13))
-                .foregroundStyle(foreground.opacity(0.65))
-
-            TextField(
-                "",
-                text: $text,
-                prompt: Text("Who created this?")
-                    .font(.tinctaBody(16))
-                    .foregroundStyle(foreground.opacity(0.45))
-            )
-            .autocorrectionDisabled()
-            .font(.tinctaBody(16))
-            .foregroundStyle(foreground)
-            .padding(.vertical, 10)
-            .padding(.horizontal, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(foreground.opacity(0.08))
-            )
-        }
     }
 }
 

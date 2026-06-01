@@ -48,11 +48,7 @@ struct ShareableRecipeCard: View {
                 .minimumScaleFactor(0.6)
                 .fixedSize(horizontal: false, vertical: true)
 
-            if let credit = recipe.credit, !credit.isEmpty {
-                Text(credit)
-                    .font(.tinctaUILabel(width * 0.022))
-                    .opacity(0.6)
-            }
+            // Credit removed per request — data is still on the model.
         }
     }
 

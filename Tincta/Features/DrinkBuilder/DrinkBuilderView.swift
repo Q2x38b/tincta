@@ -62,9 +62,11 @@ struct DrinkBuilderView: View {
                                 ) {
                                     vm.vessel = v
                                 } content: {
-                                    VesselShape(vessel: v)
-                                        .stroke(fg, lineWidth: 1.2)
-                                        .padding(6)
+                                    // Asset → SF Symbol → procedural fallback.
+                                    // Phosphor (when bundled for this vessel)
+                                    // wins; otherwise we fall through.
+                                    VesselArt(vessel: v, tint: fg)
+                                        .padding(10)
                                 }
                             }
                         }
@@ -96,7 +98,8 @@ struct DrinkBuilderView: View {
                                 ) {
                                     vm.ice = ice
                                 } content: {
-                                    IceOptionGlyph(ice: ice, foreground: fg)
+                                    IceArt(ice: ice, tint: fg)
+                                        .padding(12)
                                 }
                             }
                         }
@@ -111,8 +114,8 @@ struct DrinkBuilderView: View {
                                 ) {
                                     vm.toggle(c)
                                 } content: {
-                                    CitrusView(citrus: c)
-                                        .padding(8)
+                                    CitrusArt(citrus: c, tint: fg)
+                                        .padding(12)
                                 }
                             }
                         }
@@ -127,8 +130,8 @@ struct DrinkBuilderView: View {
                                 ) {
                                     vm.toggle(g)
                                 } content: {
-                                    GarnishView(garnish: g)
-                                        .padding(8)
+                                    GarnishArt(garnish: g, tint: fg)
+                                        .padding(12)
                                 }
                             }
                         }

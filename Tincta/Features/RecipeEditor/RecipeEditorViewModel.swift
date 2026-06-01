@@ -128,6 +128,13 @@ final class RecipeEditorViewModel {
     /// the user actually opens the builder.
     var workingDrinkLook: DrinkLook?
 
+    /// `true` once the user has confirmed deletion of this recipe. The
+    /// editor view checks this and swaps to a "Recipe deleted." panel
+    /// instead of dismissing automatically — that way the user stays
+    /// in the editor (and the parent detail sheet stays open behind it)
+    /// until they manually close.
+    var isDeleted: Bool = false
+
     init(recipe: Recipe?) {
         self.editingRecipe = recipe
         if let r = recipe {
@@ -289,6 +296,11 @@ final class RecipeEditorViewModel {
         guard let recipe = editingRecipe else { return }
         context.delete(recipe)
         try? context.save()
+        // The editor sticks around showing a "deleted" panel — the view
+        // watches this flag and renders accordingly. We DON'T call
+        // dismiss() here, so the user stays in the editor + the parent
+        // detail sheet stays open until they close them manually.
+        isDeleted = true
     }
 
     // MARK: - Helpers

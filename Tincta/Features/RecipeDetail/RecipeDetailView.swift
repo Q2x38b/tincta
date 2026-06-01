@@ -227,12 +227,8 @@ struct RecipeDetailView: View {
                 }
             }
 
-            if let credit = recipe.credit, !credit.isEmpty {
-                Text(credit)
-                    .font(.tinctaBody(13).italic())
-                    .opacity(0.65)
-                    .padding(.top, 12)
-            }
+            // Credit display removed per request — Recipe.credit data still
+            // lives on the model so existing recipes' credits aren't lost.
         }
     }
 

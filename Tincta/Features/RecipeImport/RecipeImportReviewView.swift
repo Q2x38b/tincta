@@ -90,7 +90,6 @@ private struct DraftCard: View {
                 nameField(fg: fg)
                 ingredientsSection(fg: fg)
                 directionsSection(fg: fg)
-                creditField(fg: fg)
                 colorRow(fg: fg)
             }
         }
@@ -191,18 +190,6 @@ private struct DraftCard: View {
                 .font(.tinctaBody(15))
                 .foregroundStyle(fg)
                 .padding(8)
-                .background(field(fg: fg))
-        }
-    }
-
-    private func creditField(fg: Color) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            sectionLabel("Recipe credit", fg: fg)
-            TextField("Optional", text: $draft.credit)
-                .font(.tinctaBody(15))
-                .foregroundStyle(fg)
-                .textFieldStyle(.plain)
-                .padding(10)
                 .background(field(fg: fg))
         }
     }

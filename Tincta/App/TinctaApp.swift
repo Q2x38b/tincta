@@ -7,15 +7,25 @@ private let launchLog = Logger(subsystem: "com.tincta.app", category: "launch")
 
 @main
 struct TinctaApp: App {
-    @State private var container: ModelContainer?
+    /// Built synchronously in `init`. There is NO app-level splash anymore:
+    /// the iOS system launch screen (LaunchBackground colour + LaunchLogo)
+    /// covers the brief container-open + seed window, and then we render
+    /// straight into RootView. No async coordination edge to hang on, no
+    /// "stuck splash" state.
+    let container: ModelContainer
 
     init() {
-        launchLog.notice("TinctaApp.init")
-        // Register bundled fonts on a background task. We previously listed
-        // them in Info.plist's UIAppFonts which forces iOS to parse + validate
-        // the TTFs ON the main launch thread before showing the first frame —
-        // measurable cause of the "stuck splash" report. CTFontManager does
-        // the same thing but we can fire it off-main.
+        let start = ContinuousClock.now
+        let c = TinctaModelContainer.makeContainerNonisolated()
+        TinctaModelContainer.seedIfEmpty(container: c)
+        self.container = c
+        let elapsed = ContinuousClock.now - start
+        launchLog.notice("Container + seed ready in \(elapsed.components.seconds)s")
+
+        // Font registration is the one thing we keep off-main — TTF parse +
+        // validate is genuinely expensive enough to push past the launch
+        // watchdog on cold start. UI will briefly render with the system
+        // serif fallback until this completes, then re-resolve.
         Task.detached(priority: .userInitiated) {
             Self.registerBundledFonts()
         }
@@ -23,52 +33,10 @@ struct TinctaApp: App {
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                if let container {
-                    RootView()
-                        .modelContainer(container)
-                        .tinctaTypography()
-                } else {
-                    splash
-                        .onAppear { startContainerLoad() }
-                }
-            }
-            .preferredColorScheme(.dark)
-        }
-    }
-
-    // MARK: - Splash (intentionally minimal)
-
-    /// Just a colour + tiny spinner. NO Image (forces asset lookup), NO Text
-    /// (forces font resolution), NO glassEffect (forces Metal shader compile
-    /// before first frame). The whole point is for `body` to return as fast
-    /// as possible so `.onAppear` actually fires and kicks off the container
-    /// load — anything heavy in `body` delays both the splash being visible
-    /// AND the load starting.
-    private var splash: some View {
-        ZStack {
-            Color.tinctaInk.ignoresSafeArea()
-            ProgressView()
-                .tint(.white.opacity(0.6))
-                .controlSize(.small)
-        }
-        .accessibilityLabel("Loading Tincta")
-    }
-
-    // MARK: - Loader
-
-    private func startContainerLoad() {
-        guard container == nil else { return }
-        Task.detached(priority: .userInitiated) {
-            let start = ContinuousClock.now
-            let store = TinctaModelContainer.makeContainerNonisolated()
-            let storeTime = ContinuousClock.now - start
-            launchLog.notice("ModelContainer opened in \(storeTime.components.seconds)s")
-
-            await MainActor.run {
-                TinctaModelContainer.seedIfEmpty(container: store)
-                self.container = store
-            }
+            RootView()
+                .modelContainer(container)
+                .tinctaTypography()
+                .preferredColorScheme(.dark)
         }
     }
 

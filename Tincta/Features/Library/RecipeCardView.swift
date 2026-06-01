@@ -56,11 +56,8 @@ struct RecipeCardView: View {
 
             Spacer(minLength: 0)
 
-            if let credit = recipe.credit, !credit.isEmpty {
-                Text(credit)
-                    .font(.tinctaUILabel(11))
-                    .foregroundStyle(ingredientColor.opacity(0.85))
-            }
+            // Credit footer removed per request — Recipe.credit data still
+            // exists on the model but no view reads it.
         }
         .padding(.horizontal, 24)
         .padding(.top, 24)
