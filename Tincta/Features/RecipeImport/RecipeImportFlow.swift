@@ -42,9 +42,10 @@ struct RecipeImportFlow: View {
 
     var body: some View {
         ZStack {
-            Color.tinctaParchment.ignoresSafeArea()
+            Color.tinctaInk.ignoresSafeArea()
             content
                 .padding(24)
+                .foregroundStyle(.white)
         }
         .onAppear(perform: startSource)
         .fullScreenCover(isPresented: $showCamera) {

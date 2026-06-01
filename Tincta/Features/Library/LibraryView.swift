@@ -28,9 +28,11 @@ struct LibraryView: View {
     @State private var showAbout = false
     @State private var showSearch = false
 
-    /// Vertical overlap between consecutive cards. Card is now 420pt; overlap
-    /// of ~210pt leaves title + 3 ingredient lines visible.
-    private let cardOverlap: CGFloat = 210
+    /// Vertical overlap between consecutive cards. Cards now have a
+    /// minHeight of 280pt and grow with ingredient count. Overlap of ~150pt
+    /// leaves the title + ~3 ingredient lines visible above the next card's
+    /// bleed — for cards with many ingredients, more rows show through.
+    private let cardOverlap: CGFloat = 150
 
     var body: some View {
         ZStack(alignment: .top) {

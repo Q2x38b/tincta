@@ -41,15 +41,29 @@ enum TinctaModelContainer {
         }
     }
 
+    /// UserDefaults key — set once after the first successful seed so we
+    /// can skip the `fetchCount` round-trip on every subsequent launch.
+    private static let didSeedKey = "com.tincta.didSeed"
+
     /// Seeds the container with starter recipes only when the store is empty.
-    /// MainActor-isolated because it uses `container.mainContext`.
+    /// Fast-paths via a UserDefaults flag on subsequent launches — the
+    /// fetchCount alone is small but it forces SwiftData to wake the SQLite
+    /// store on the main actor during launch, which is exactly the work we
+    /// want to avoid post-first-run.
     @MainActor
     static func seedIfEmpty(container: ModelContainer) {
+        if UserDefaults.standard.bool(forKey: didSeedKey) {
+            return
+        }
         let context = container.mainContext
         let descriptor = FetchDescriptor<Recipe>()
         let existing = (try? context.fetchCount(descriptor)) ?? 0
-        guard existing == 0 else { return }
-        SeedData.populate(context: context)
+        if existing == 0 {
+            SeedData.populate(context: context)
+        }
+        // Set the flag whether we seeded or not — the store has been
+        // checked at least once, so the count is no longer interesting.
+        UserDefaults.standard.set(true, forKey: didSeedKey)
     }
 
     /// Sync convenience for code paths that don't go through TinctaApp

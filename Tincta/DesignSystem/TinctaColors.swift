@@ -60,3 +60,35 @@ func contrastingForeground(forHex hex: String) -> Color {
 private func gamma(_ c: Double) -> Double {
     c <= 0.03928 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4)
 }
+
+// MARK: - Tone-on-tone
+
+extension Color {
+    /// Returns a shade of the receiver suitable as secondary text on top of
+    /// the receiver itself — slightly darker for light backgrounds, slightly
+    /// lighter for dark backgrounds. Keeps the hue so the result reads as
+    /// "of the card" rather than a contrasting overlay.
+    ///
+    /// Used for the ingredient lines on the collapsed Library cards — the
+    /// title stays at full contrast (black/white) and the ingredients drop
+    /// to this muted tone-on-tone, matching the reference screenshot.
+    func toneOnTone() -> Color {
+        #if canImport(UIKit)
+        let ui = UIColor(self)
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        guard ui.getHue(&h, saturation: &s, brightness: &b, alpha: &a) else {
+            return self
+        }
+        // Light bg → darker shade; dark bg → lighter shade.
+        // Bias saturation up a bit so the new colour reads as in-family.
+        let newB: CGFloat = b > 0.55 ? max(0, b - 0.32) : min(1, b + 0.30)
+        let newS: CGFloat = min(1, s * 1.15 + 0.05)
+        return Color(hue: Double(h),
+                     saturation: Double(newS),
+                     brightness: Double(newB),
+                     opacity: Double(a))
+        #else
+        return self
+        #endif
+    }
+}
