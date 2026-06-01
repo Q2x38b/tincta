@@ -9,14 +9,12 @@ struct RecipeCardView: View {
     let recipe: Recipe
     let namespace: Namespace.ID
 
-    /// Cap on ingredient lines previewed on the card. Most recipes are
-    /// 3-5 ingredients so usually all of them fit; very long lists get
-    /// truncated here to keep cards from growing absurdly tall.
-    private let previewLineCount = 6
+    /// Hard ceiling so a 20-ingredient recipe doesn't make a card the
+    /// size of the screen. Most recipes have 3-5 ingredients so this
+    /// rarely matters.
+    private let previewLineCap = 12
     /// Minimum card height — short recipes stop here. Recipes with more
     /// ingredients grow past this because we DON'T pin `.frame(height:)`.
-    /// The parent VStack overlap + zIndex stacking still work regardless
-    /// of individual card heights.
     private let cardMinHeight: CGFloat = 280
 
     var body: some View {
@@ -26,7 +24,7 @@ struct RecipeCardView: View {
         // black/white. Lighter cards get a darker shade; darker cards get a
         // lighter shade. Saturation bumped slightly so it reads as in-family.
         let ingredientColor = bgColor.toneOnTone()
-        let ingredients = Array(recipe.orderedIngredients.prefix(previewLineCount))
+        let ingredients = Array(recipe.orderedIngredients.prefix(previewLineCap))
 
         VStack(alignment: .leading, spacing: 16) {
             Text(recipe.name)
@@ -79,8 +77,13 @@ struct RecipeCardView: View {
                 .matchedGeometryEffect(id: "recipe-card-\(recipe.id)", in: namespace)
         )
         .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-        // Tiny shadow — just enough to lift cards off the dark background.
-        .shadow(color: Color.black.opacity(0.20), radius: 6, x: 0, y: 3)
+        // Two layered shadows: a tight contact shadow + a softer ambient.
+        // The contact shadow makes the top edge of each card pop against
+        // the card under it (since later cards stack ON TOP of earlier
+        // ones, the visible edge is the TOP); the ambient gives the whole
+        // stack lift off the dark background.
+        .shadow(color: Color.black.opacity(0.45), radius: 3, x: 0, y: -1)
+        .shadow(color: Color.black.opacity(0.30), radius: 14, x: 0, y: 6)
         .matchedTransitionSource(id: recipe.id, in: namespace)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(recipe.name))

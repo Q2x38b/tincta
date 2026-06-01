@@ -62,14 +62,18 @@ struct LibraryView: View {
                 onShare: { shareRecipe = $0 }
             )
             // Hero zoom — the system matches this id against the source on
-            // the card and expands the sheet OUT OF the card's frame.
+            // the card and expands OUT OF the card's frame on present, and
+            // shrinks BACK INTO it on dismiss. Symmetric, no separate
+            // "float-back" animation.
             .navigationTransition(.zoom(sourceID: recipe.id, in: cardNamespace))
-            // Match the card's corner radius + background so the zoom
-            // reads as the card itself growing rather than a generic sheet
-            // sliding up behind the card.
+            // Match the card's corner radius + background so the zoom reads
+            // as the card itself growing rather than a generic sheet.
             .presentationCornerRadius(26)
             .presentationBackground(Color(hex: recipe.backgroundColorHex))
-            .presentationDragIndicator(.visible)
+            // Drag indicator removed — it gave the surface a "sheet" feel
+            // (with the implication of a card behind that you could see),
+            // which fought the zoom-from-card hero behaviour. Swipe-down
+            // still dismisses; you just don't see the pill.
         }
         .sheet(item: $editorTarget) { target in
             RecipeEditorView(recipe: target.recipe)

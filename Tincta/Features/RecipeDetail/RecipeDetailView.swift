@@ -239,40 +239,55 @@ struct RecipeDetailView: View {
     // MARK: - Bottom glass bar
 
     private var bottomBar: some View {
-        // Just the buttons, no glass capsule — they sit on the recipe's own
-        // background color and read as native controls.
-        HStack(spacing: 14) {
-            Button(action: onDismiss) {
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 18, weight: .semibold))
-                    .frame(width: 40, height: 40)
-                    .contentShape(Rectangle())
+        let bg = Color(hex: recipe.backgroundColorHex)
+        return VStack(spacing: 0) {
+            // Top fade — scrolled directions text disappears INTO the bar
+            // instead of cutting off at a hard edge. Same colour as the
+            // recipe so it reads as the recipe page softening, not a
+            // separate panel sliding over.
+            LinearGradient(
+                colors: [bg.opacity(0), bg],
+                startPoint: .top, endPoint: .bottom
+            )
+            .frame(height: 22)
+            .allowsHitTesting(false)
+
+            HStack(spacing: 14) {
+                Button(action: onDismiss) {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 18, weight: .semibold))
+                        .frame(width: 40, height: 40)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Dismiss")
+                .frame(minWidth: 44, minHeight: 44)
+
+                UnitToggle(selection: $model.displayUnit, foreground: foreground)
+
+                QuantityStepper(value: $model.quantityMultiplier, foreground: foreground)
+
+                Spacer(minLength: 0)
+
+                Button {
+                    onShare(recipe)
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 18, weight: .semibold))
+                        .frame(width: 40, height: 40)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Share recipe")
+                .frame(minWidth: 44, minHeight: 44)
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Dismiss")
-            .frame(minWidth: 44, minHeight: 44)
-
-            UnitToggle(selection: $model.displayUnit, foreground: foreground)
-
-            QuantityStepper(value: $model.quantityMultiplier, foreground: foreground)
-
-            Spacer(minLength: 0)
-
-            Button {
-                onShare(recipe)
-            } label: {
-                Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 18, weight: .semibold))
-                    .frame(width: 40, height: 40)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Share recipe")
-            .frame(minWidth: 44, minHeight: 44)
+            .foregroundStyle(foreground)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            // Opaque backing under the buttons — directions text no longer
+            // scrolls visibly behind them.
+            .background(bg)
         }
-        .foregroundStyle(foreground)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
     }
 }
 

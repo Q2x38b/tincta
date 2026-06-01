@@ -67,6 +67,20 @@ public struct AboutView: View {
                 )
                 .padding(.horizontal, 20)
 
+                // Type credit — required by the SIL Open Font License v1.1
+                // that the bundled EB Garamond TTFs ship under. Full license
+                // text is at Tincta/Resources/Fonts/OFL.txt.
+                VStack(spacing: 0) {
+                    aboutRow(icon: "textformat",
+                             title: "Type",
+                             subtitle: "EB Garamond by Georg Duffner & Octavio Pardo, SIL Open Font License v1.1.")
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color(.secondarySystemGroupedBackground))
+                )
+                .padding(.horizontal, 20)
+
                 Text("Crafted with care.")
                     .font(.tinctaUILabel())
                     .foregroundStyle(.tertiary)

@@ -79,10 +79,11 @@ extension Color {
         guard ui.getHue(&h, saturation: &s, brightness: &b, alpha: &a) else {
             return self
         }
-        // Light bg → darker shade; dark bg → lighter shade.
-        // Bias saturation up a bit so the new colour reads as in-family.
-        let newB: CGFloat = b > 0.55 ? max(0, b - 0.32) : min(1, b + 0.30)
-        let newS: CGFloat = min(1, s * 1.15 + 0.05)
+        // Light bg → darker shade; dark bg → lighter shade. Larger deltas
+        // than the first cut so contrast is actually readable — was 0.32/0.30
+        // before which read too subtle on real device.
+        let newB: CGFloat = b > 0.55 ? max(0, b - 0.45) : min(1, b + 0.42)
+        let newS: CGFloat = min(1, s * 1.20 + 0.08)
         return Color(hue: Double(h),
                      saturation: Double(newS),
                      brightness: Double(newB),
