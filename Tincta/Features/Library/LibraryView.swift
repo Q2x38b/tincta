@@ -62,6 +62,11 @@ struct LibraryView: View {
             // Hero zoom — the system matches this id against the source on
             // the card and expands the sheet OUT OF the card's frame.
             .navigationTransition(.zoom(sourceID: recipe.id, in: cardNamespace))
+            // Match the card's corner radius + background so the zoom
+            // reads as the card itself growing rather than a generic sheet
+            // sliding up behind the card.
+            .presentationCornerRadius(26)
+            .presentationBackground(Color(hex: recipe.backgroundColorHex))
             .presentationDragIndicator(.visible)
         }
         .sheet(item: $editorTarget) { target in

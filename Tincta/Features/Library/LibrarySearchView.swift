@@ -16,12 +16,15 @@ struct LibrarySearchView: View {
 
     /// Pre-built lowercased lookup for one recipe. Built once when the sheet
     /// appears (and refreshed if the input list changes), so each keystroke
-    /// only does cheap `String.contains` calls against already-lowercased
-    /// strings — no per-keystroke .lowercased() / .sorted() work.
+    /// only does cheap String.contains + edit-distance work against already-
+    /// lowercased strings — no per-keystroke .lowercased() / .sorted().
     private struct SearchEntry {
         let recipe: Recipe
         let lowerName: String
-        let lowerIngredients: [String]   // one per ingredient, already lowercased
+        /// Tokenised whole-words from name + ingredient names. Used by the
+        /// fuzzy matcher so typos like "shalken" can find "shaken".
+        let tokens: [String]
+        let lowerIngredients: [String]
     }
 
     var body: some View {
@@ -111,36 +114,102 @@ struct LibrarySearchView: View {
         guard !trimmed.isEmpty else {
             return index.map { SearchMatch(recipe: $0.recipe, kind: .all) }
         }
-        // Walk the prebuilt index — no .lowercased() or .sorted() per keystroke.
+        // Three tiers, ranked best → worst:
+        //   1. Substring hit in the recipe name           (exact-ish)
+        //   2. Substring hit in an ingredient name        (exact-ish)
+        //   3. Fuzzy hit (edit distance ≤ tolerance) on any token
+        //      from the name or ingredients                (typo tolerance —
+        //      this is what makes "shalken" find "shaken")
         var nameHits: [SearchMatch] = []
         var ingHits: [SearchMatch] = []
+        var fuzzyHits: [SearchMatch] = []
+
+        // Edit-distance tolerance scales with query length. Tiny queries can
+        // match too much if we allow many edits, so cap them tight.
+        let tolerance: Int = {
+            switch trimmed.count {
+            case 0...3:  return 0       // too short — only exact matches
+            case 4...5:  return 1
+            case 6...9:  return 2
+            default:     return 3
+            }
+        }()
+
         for entry in index {
             if entry.lowerName.contains(trimmed) {
                 nameHits.append(.init(recipe: entry.recipe, kind: .name))
                 continue
             }
             if let idx = entry.lowerIngredients.firstIndex(where: { $0.contains(trimmed) }) {
-                // Resolve the original-cased ingredient name from the recipe
-                // for display. orderedIngredients here is the cached one.
                 let originalName = entry.recipe.orderedIngredients[idx].name
                 ingHits.append(.init(recipe: entry.recipe, kind: .ingredient(originalName)))
+                continue
+            }
+            // Fuzzy fallback. Walk every token in the entry and look for one
+            // close to the query. First close-enough hit wins.
+            if tolerance > 0,
+               let fuzzy = entry.tokens.first(where: {
+                   editDistance($0, trimmed) <= tolerance
+               }) {
+                fuzzyHits.append(.init(recipe: entry.recipe, kind: .ingredient(fuzzy)))
             }
         }
-        return nameHits + ingHits
+        return nameHits + ingHits + fuzzyHits
     }
 
     /// Pre-lowercases every recipe name + every ingredient name once. Called
     /// on appear and whenever the input list changes. Keystroke search then
-    /// becomes a pure string-contains loop.
+    /// becomes a pure string-contains + edit-distance loop.
     private func rebuildIndex() {
         index = recipes.map { recipe in
-            SearchEntry(
+            let lowerName = recipe.name.lowercased()
+            let lowerIngs = recipe.orderedIngredients.map { $0.name.lowercased() }
+            // One token per whole word across name + ingredients. We dedupe
+            // and drop tokens shorter than 3 chars since they generate too
+            // many fuzzy false-positives.
+            var tokens = Set<String>()
+            for src in [lowerName] + lowerIngs {
+                for word in src.split(whereSeparator: { !$0.isLetter }) where word.count >= 3 {
+                    tokens.insert(String(word))
+                }
+            }
+            return SearchEntry(
                 recipe: recipe,
-                lowerName: recipe.name.lowercased(),
-                lowerIngredients: recipe.orderedIngredients.map { $0.name.lowercased() }
+                lowerName: lowerName,
+                tokens: Array(tokens),
+                lowerIngredients: lowerIngs
             )
         }
     }
+}
+
+// MARK: - Edit distance
+
+/// Plain Levenshtein distance — minimum single-char insertions, deletions,
+/// or substitutions to turn `a` into `b`. O(n*m) time, O(min(n,m)) space.
+/// Used by the search view's fuzzy fallback for typo tolerance.
+private func editDistance(_ a: String, _ b: String) -> Int {
+    let lhs = Array(a)
+    let rhs = Array(b)
+    if lhs.isEmpty { return rhs.count }
+    if rhs.isEmpty { return lhs.count }
+
+    var previous = Array(0...rhs.count)
+    var current = Array(repeating: 0, count: rhs.count + 1)
+
+    for i in 1...lhs.count {
+        current[0] = i
+        for j in 1...rhs.count {
+            let cost = lhs[i - 1] == rhs[j - 1] ? 0 : 1
+            current[j] = min(
+                current[j - 1] + 1,          // insertion
+                previous[j] + 1,             // deletion
+                previous[j - 1] + cost       // substitution
+            )
+        }
+        swap(&previous, &current)
+    }
+    return previous[rhs.count]
 }
 
 // MARK: - Row

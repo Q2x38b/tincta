@@ -138,7 +138,8 @@ struct RecipeEditorView: View {
             .opacity(viewModel.name.trimmingCharacters(in: .whitespaces).isEmpty ? 0.4 : 1.0)
         }
         .padding(.horizontal, 22)
-        .padding(.top, 14)
+        // Sits clear of the sheet's drag indicator + status-bar inset
+        .padding(.top, 28)
         .padding(.bottom, 6)
     }
 
@@ -302,26 +303,15 @@ struct RecipeEditorView: View {
 
     // MARK: - Directions
 
+    /// Extracted into its own View so per-keystroke text updates only
+    /// re-evaluate THIS subview, not the editor's giant body (which
+    /// contains TextField + ingredients + DrinkPreview thumbnail +
+    /// everything else). That's the source of the editor lag while typing.
     private var directionsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("Directions")
-            TextField(
-                "",
-                text: $viewModel.directions,
-                prompt: Text("How is this drink made?")
-                    .font(.tinctaBody(16))
-                    .foregroundStyle(foreground.opacity(0.45)),
-                axis: .vertical
-            )
-            .lineLimit(3...10)
-            .font(.tinctaBody(16))
-            .foregroundStyle(foreground)
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(foreground.opacity(0.08))
-            )
-        }
+        DirectionsField(
+            text: $viewModel.directions,
+            foreground: foreground
+        )
     }
 
     // MARK: - Drink image / look
@@ -433,6 +423,43 @@ struct RecipeEditorView: View {
         Text(text)
             .font(.tinctaUILabel(13))
             .foregroundStyle(foreground.opacity(0.65))
+    }
+}
+
+// MARK: - DirectionsField
+
+/// Standalone subview for the directions TextField. Owns ONLY the binding
+/// + foreground colour, so a per-keystroke update only re-evaluates this
+/// view — not the editor's giant body (TextField, ingredients list,
+/// DrinkPreview thumbnail, sizes, etc.), which is what made typing in
+/// directions feel laggy.
+private struct DirectionsField: View {
+    @Binding var text: String
+    let foreground: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Directions")
+                .font(.tinctaUILabel(13))
+                .foregroundStyle(foreground.opacity(0.65))
+
+            TextField(
+                "",
+                text: $text,
+                prompt: Text("How is this drink made?")
+                    .font(.tinctaBody(16))
+                    .foregroundStyle(foreground.opacity(0.45)),
+                axis: .vertical
+            )
+            .lineLimit(3...10)
+            .font(.tinctaBody(16))
+            .foregroundStyle(foreground)
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(foreground.opacity(0.08))
+            )
+        }
     }
 }
 

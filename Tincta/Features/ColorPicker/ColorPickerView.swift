@@ -81,7 +81,10 @@ public struct ColorPickerView: View {
                 .foregroundStyle(.white)
                 .accessibilityAddTraits(.isHeader)
         }
-        .frame(height: 52)
+        // Taller + inset so the bar isn't crushed under the sheet's drag
+        // indicator + status-bar safe area.
+        .frame(height: 76)
+        .padding(.top, 8)
     }
 
     // MARK: - Data

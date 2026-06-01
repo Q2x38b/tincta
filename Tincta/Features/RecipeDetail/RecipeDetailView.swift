@@ -71,7 +71,10 @@ struct RecipeDetailView: View {
                         .padding(.bottom, 24)
                 }
                 .padding(.horizontal, 28)
-                .padding(.top, 8)
+                // Bumped from 8 → 28 so the title sits clear of the sheet's
+                // drag indicator + status-bar inset, rather than hugging the
+                // top edge of the presentation.
+                .padding(.top, 28)
             }
             .scrollIndicators(.hidden)
         }
@@ -87,7 +90,7 @@ struct RecipeDetailView: View {
     private var header: some View {
         HStack(alignment: .top) {
             Text(recipe.name)
-                .font(.tinctaDisplay(34))
+                .font(.tinctaDisplay(26))
                 .lineLimit(3)
                 .minimumScaleFactor(0.7)
                 .multilineTextAlignment(.leading)

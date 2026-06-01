@@ -151,9 +151,21 @@ enum RecipeParser {
         - "8 mint leaves" → quantityWhole=8, fraction="", unit="leaf", name="Mint".
         - "Top with club soda" → quantityWhole=0, fraction="", unit="top", name="Club Soda".
         - Strip trailing punctuation from ingredient names.
-        - Preserve directions verbatim, one step per line. Don't paraphrase or shorten.
         - Recipe names use Title Case.
         - If a value is missing in the source, leave directions/credit empty rather than guessing.
+
+        DIRECTIONS / NUMBERED STEPS:
+        - Output directions as discrete steps separated by NEWLINES (\\n). The
+          app numbers them automatically from line breaks — you do not write
+          "1.", "2.", or "Step 1:" prefixes yourself.
+        - One imperative per line. "Shake. Strain. Garnish." → three lines.
+        - If the source already has explicit numbers ("1. Stir bourbon and
+          syrup. 2. Strain into glass."), STRIP the numbers and keep the
+          natural splits — same one-imperative-per-line shape.
+        - If the source is one long paragraph, SPLIT it at the sentence
+          boundaries that match procedural steps (verbs like Stir, Shake,
+          Add, Strain, Pour, Top, Garnish, Express, Muddle, Build).
+        - Don't paraphrase the words themselves — just split them up.
         """
     }
 }

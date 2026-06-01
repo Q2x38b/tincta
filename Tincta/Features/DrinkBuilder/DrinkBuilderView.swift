@@ -41,7 +41,7 @@ struct DrinkBuilderView: View {
                     .accessibilityLabel("Done editing drink look")
                     Spacer()
                 }
-                .padding(.top, 4)
+                .padding(.top, 24)
 
                 // Live preview
                 DrinkPreviewView(look: vm.stagedLook)
