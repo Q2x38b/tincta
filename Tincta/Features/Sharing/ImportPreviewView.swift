@@ -120,7 +120,6 @@ struct ImportPreviewView: View {
                     }
                     Text(confirmTitle)
                         .font(.tinctaUILabel(15))
-                        .tracking(1)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)

@@ -108,7 +108,7 @@ struct RecipeShareSheet: View {
     private func actionLabel(systemImage: String, title: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: systemImage)
-            Text(title).font(.tinctaUILabel(14)).tracking(1)
+            Text(title).font(.tinctaUILabel(15))
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity)

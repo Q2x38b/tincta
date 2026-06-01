@@ -157,9 +157,8 @@ private struct SearchRow: View {
                 .shadow(color: .black.opacity(0.25), radius: 3, x: 0, y: 1)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(match.recipe.name.uppercased())
-                    .font(.tinctaUILabel(13))
-                    .tracking(0.8)
+                Text(match.recipe.name)
+                    .font(.tinctaUILabel(14))
                     .foregroundStyle(.white)
                 Text(subtitle)
                     .font(.tinctaBody(12))

@@ -122,19 +122,17 @@ struct RecipeEditorView: View {
 
     private var topBar: some View {
         HStack {
-            Button("CANCEL") { dismiss() }
-                .font(.tinctaUILabel(13))
-                .tracking(1.4)
+            Button("Cancel") { dismiss() }
+                .font(.tinctaUILabel(15))
                 .foregroundStyle(foreground)
 
             Spacer()
 
-            Button("DONE") {
+            Button("Done") {
                 viewModel.save(in: modelContext)
                 dismiss()
             }
-            .font(.tinctaUILabel(13))
-            .tracking(1.4)
+            .font(.tinctaUILabel(15))
             .foregroundStyle(foreground)
             .disabled(viewModel.name.trimmingCharacters(in: .whitespaces).isEmpty)
             .opacity(viewModel.name.trimmingCharacters(in: .whitespaces).isEmpty ? 0.4 : 1.0)
@@ -154,7 +152,7 @@ struct RecipeEditorView: View {
                 .font(.tinctaDisplay(22))
                 .foregroundStyle(foreground.opacity(0.35))
         )
-        .textInputAutocapitalization(.characters)
+        .textInputAutocapitalization(.words)
         .autocorrectionDisabled()
         .focused($nameFocused)
         .font(.tinctaDisplay(22))
@@ -165,7 +163,7 @@ struct RecipeEditorView: View {
 
     private var ingredientsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionLabel("INGREDIENTS")
+            sectionLabel("Ingredients")
 
             if viewModel.ingredients.isEmpty {
                 Text("No ingredients yet.")
@@ -213,9 +211,8 @@ struct RecipeEditorView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "plus")
                         .font(.system(size: 14, weight: .semibold))
-                    Text("ADD INGREDIENT")
-                        .font(.tinctaUILabel(13))
-                        .tracking(1.2)
+                    Text("Add ingredient")
+                        .font(.tinctaUILabel(14))
                 }
                 .foregroundStyle(foreground)
                 .padding(.vertical, 10)
@@ -228,7 +225,7 @@ struct RecipeEditorView: View {
     private var sizesSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                sectionLabel("SIZES")
+                sectionLabel("Sizes")
                 Spacer()
                 Menu {
                     Button("Single (1×)") {
@@ -250,8 +247,7 @@ struct RecipeEditorView: View {
                     }
                 } label: {
                     Label("Add", systemImage: "plus")
-                        .font(.tinctaUILabel(11))
-                        .tracking(1.0)
+                        .font(.tinctaUILabel(13))
                         .foregroundStyle(foreground)
                 }
             }
@@ -286,9 +282,8 @@ struct RecipeEditorView: View {
                     .font(.tinctaBody(15))
                     .foregroundStyle(foreground)
                 if size.isDefault {
-                    Text("DEFAULT")
-                        .font(.tinctaUILabel(9))
-                        .tracking(1.2)
+                    Text("Default")
+                        .font(.tinctaUILabel(11))
                         .foregroundStyle(foreground.opacity(0.55))
                 }
             }
@@ -309,7 +304,7 @@ struct RecipeEditorView: View {
 
     private var directionsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("DIRECTIONS")
+            sectionLabel("Directions")
             TextField(
                 "",
                 text: $viewModel.directions,
@@ -333,16 +328,15 @@ struct RecipeEditorView: View {
 
     private var drinkImageSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("DRINK IMAGE")
+            sectionLabel("Drink image")
             Button {
                 showDrinkBuilder = true
             } label: {
                 HStack(spacing: 14) {
                     DrinkPreviewView(look: viewModel.workingDrinkLook ?? viewModel.editingRecipe?.drinkLook)
                         .frame(width: 56, height: 72)
-                    Text("EDIT IMAGE")
-                        .font(.tinctaUILabel(13))
-                        .tracking(1.2)
+                    Text("Edit image")
+                        .font(.tinctaUILabel(14))
                         .foregroundStyle(foreground)
                     Spacer()
                     Image(systemName: "chevron.right")
@@ -363,7 +357,7 @@ struct RecipeEditorView: View {
 
     private var creditSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("RECIPE CREDIT")
+            sectionLabel("Recipe credit")
             TextField(
                 "",
                 text: $viewModel.credit,
@@ -396,9 +390,8 @@ struct RecipeEditorView: View {
                         Circle().stroke(foreground.opacity(0.4), lineWidth: 1)
                     )
                     .frame(width: 22, height: 22)
-                Text("CHANGE BACKGROUND COLOR")
-                    .font(.tinctaUILabel(13))
-                    .tracking(1.2)
+                Text("Change background color")
+                    .font(.tinctaUILabel(14))
                     .foregroundStyle(foreground)
                 Spacer()
                 Image(systemName: "chevron.right")
@@ -421,9 +414,8 @@ struct RecipeEditorView: View {
         Button(role: .destructive) {
             showDeleteConfirm = true
         } label: {
-            Text("DELETE RECIPE")
-                .font(.tinctaUILabel(13))
-                .tracking(1.4)
+            Text("Delete recipe")
+                .font(.tinctaUILabel(14))
                 .foregroundStyle(.red)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
@@ -439,8 +431,7 @@ struct RecipeEditorView: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(.tinctaUILabel(11))
-            .tracking(1.6)
+            .font(.tinctaUILabel(13))
             .foregroundStyle(foreground.opacity(0.65))
     }
 }

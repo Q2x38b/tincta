@@ -197,8 +197,7 @@ struct RecipeImportFlow: View {
                 .font(.tinctaBody(15))
                 .multilineTextAlignment(.center)
             Text("All processing happens on this device.")
-                .font(.tinctaUILabel(10))
-                .tracking(1.2)
+                .font(.tinctaUILabel(12))
                 .foregroundStyle(.secondary)
         }
         .padding(24)

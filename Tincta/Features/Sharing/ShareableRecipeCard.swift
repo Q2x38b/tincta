@@ -38,21 +38,19 @@ struct ShareableRecipeCard: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("TINCTA")
-                .font(.tinctaUILabel(width * 0.018))
-                .tracking(4)
+            Text("Tincta")
+                .font(.tinctaUILabel(width * 0.022))
                 .opacity(0.55)
 
-            Text(recipe.name.uppercased())
+            Text(recipe.name)
                 .font(.tinctaDisplay(width * 0.085))
                 .lineLimit(3)
                 .minimumScaleFactor(0.6)
                 .fixedSize(horizontal: false, vertical: true)
 
             if let credit = recipe.credit, !credit.isEmpty {
-                Text(credit.uppercased())
-                    .font(.tinctaUILabel(width * 0.018))
-                    .tracking(3)
+                Text(credit)
+                    .font(.tinctaUILabel(width * 0.022))
                     .opacity(0.6)
             }
         }
@@ -60,7 +58,7 @@ struct ShareableRecipeCard: View {
 
     private var ingredientsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            sectionLabel("INGREDIENTS")
+            sectionLabel("Ingredients")
             VStack(alignment: .leading, spacing: 10) {
                 ForEach(recipe.orderedIngredients) { ingredient in
                     IngredientLineText(
@@ -80,7 +78,7 @@ struct ShareableRecipeCard: View {
 
     private var directionsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            sectionLabel("DIRECTIONS")
+            sectionLabel("Directions")
             Text(recipe.directions)
                 .font(.tinctaBody(width * 0.028))
                 .lineSpacing(width * 0.008)
@@ -92,8 +90,7 @@ struct ShareableRecipeCard: View {
         HStack {
             Spacer()
             Text("tincta.app")
-                .font(.tinctaUILabel(width * 0.018))
-                .tracking(3)
+                .font(.tinctaUILabel(width * 0.022))
                 .opacity(0.55)
         }
     }
@@ -102,8 +99,7 @@ struct ShareableRecipeCard: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(.tinctaUILabel(width * 0.02))
-            .tracking(2.5)
+            .font(.tinctaUILabel(width * 0.024))
             .opacity(0.6)
     }
 }

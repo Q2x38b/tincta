@@ -20,9 +20,8 @@ struct RecipeCardView: View {
         let ingredients = Array(recipe.orderedIngredients.prefix(previewLineCount))
 
         VStack(alignment: .leading, spacing: 18) {
-            Text(recipe.name.uppercased())
+            Text(recipe.name)
                 .font(.tinctaDisplay(22))
-                .tracking(0.4)
                 .foregroundStyle(foreground)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
@@ -49,9 +48,8 @@ struct RecipeCardView: View {
             Spacer(minLength: 0)
 
             if let credit = recipe.credit, !credit.isEmpty {
-                Text(credit.uppercased())
-                    .font(.tinctaUILabel(10))
-                    .tracking(1.2)
+                Text(credit)
+                    .font(.tinctaUILabel(11))
                     .foregroundStyle(foreground.opacity(0.7))
             }
         }

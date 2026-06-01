@@ -43,7 +43,7 @@ struct SizeEditorSheet: View {
 
     private var nameField: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("SIZE NAME")
+            sectionLabel("Size name")
             TextField(
                 "",
                 text: $size.name,
@@ -69,7 +69,7 @@ struct SizeEditorSheet: View {
 
     private var amountsList: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionLabel("INGREDIENT AMOUNTS")
+            sectionLabel("Ingredient amounts")
             if ingredients.isEmpty {
                 Text("Add ingredients to the recipe first.")
                     .font(.tinctaBody(14))
@@ -90,9 +90,8 @@ struct SizeEditorSheet: View {
         let amountIdx = size.amounts.firstIndex { $0.ingredientID == ingredient.id }
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(ingredient.name.isEmpty ? "(unnamed)" : ingredient.name.uppercased())
-                    .font(.tinctaUILabel(12))
-                    .tracking(1.0)
+                Text(ingredient.name.isEmpty ? "(unnamed)" : ingredient.name)
+                    .font(.tinctaUILabel(14))
                     .foregroundStyle(foreground)
                 Text(ingredient.unit.display.isEmpty ? "count" : ingredient.unit.display)
                     .font(.tinctaBody(11))
@@ -184,9 +183,8 @@ struct SizeEditorSheet: View {
             onDelete()
             dismiss()
         } label: {
-            Text("DELETE SIZE")
-                .font(.tinctaUILabel(13))
-                .tracking(1.3)
+            Text("Delete size")
+                .font(.tinctaUILabel(14))
                 .foregroundStyle(.red)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
@@ -202,8 +200,7 @@ struct SizeEditorSheet: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(.tinctaUILabel(10))
-            .tracking(1.4)
+            .font(.tinctaUILabel(13))
             .foregroundStyle(foreground.opacity(0.6))
     }
 

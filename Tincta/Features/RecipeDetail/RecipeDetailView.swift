@@ -86,9 +86,8 @@ struct RecipeDetailView: View {
 
     private var header: some View {
         HStack(alignment: .top) {
-            Text(recipe.name.uppercased())
-                .font(.tinctaDisplay(40))
-                .tracking(0.5)
+            Text(recipe.name)
+                .font(.tinctaDisplay(34))
                 .lineLimit(3)
                 .minimumScaleFactor(0.7)
                 .multilineTextAlignment(.leading)
@@ -97,9 +96,8 @@ struct RecipeDetailView: View {
             Spacer(minLength: 12)
 
             Button(action: onEdit) {
-                Text("EDIT")
-                    .font(.tinctaUILabel(12))
-                    .tracking(1.6)
+                Text("Edit")
+                    .font(.tinctaUILabel(14))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
                     .overlay(
@@ -117,9 +115,8 @@ struct RecipeDetailView: View {
 
     private var ingredientsBlock: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("INGREDIENTS")
-                .font(.tinctaUILabel(11))
-                .tracking(2)
+            Text("Ingredients")
+                .font(.tinctaUILabel(13))
                 .opacity(0.7)
 
             VStack(alignment: .leading, spacing: 8) {
@@ -162,9 +159,8 @@ struct RecipeDetailView: View {
                 model.selectedSizeID = size.id
             }
         } label: {
-            Text(size.name.uppercased())
-                .font(.tinctaUILabel(11))
-                .tracking(1.3)
+            Text(size.name)
+                .font(.tinctaUILabel(13))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
                 .foregroundStyle(isSelected
@@ -203,9 +199,8 @@ struct RecipeDetailView: View {
 
     private var directionsBlock: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("DIRECTIONS")
-                .font(.tinctaUILabel(11))
-                .tracking(2)
+            Text("Directions")
+                .font(.tinctaUILabel(13))
                 .opacity(0.7)
 
             let steps = DirectionsRenderer.render(recipe.directions)

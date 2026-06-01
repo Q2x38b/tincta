@@ -32,9 +32,8 @@ struct DrinkBuilderView: View {
                         vm.commit()
                         dismiss()
                     } label: {
-                        Text("DONE")
-                            .font(.tinctaUILabel(14))
-                            .tracking(2)
+                        Text("Done")
+                            .font(.tinctaUILabel(15))
                             .foregroundStyle(fg)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
@@ -53,7 +52,7 @@ struct DrinkBuilderView: View {
                 // Option sections
                 ScrollView {
                     VStack(spacing: 28) {
-                        OptionSection(label: "VESSEL", foreground: fg) {
+                        OptionSection(label: "Vessel", foreground: fg) {
                             ForEach(Vessel.allCases) { v in
                                 OptionDot(
                                     isSelected: vm.vessel == v,
@@ -69,7 +68,7 @@ struct DrinkBuilderView: View {
                             }
                         }
 
-                        OptionSection(label: "DRINK COLOR", foreground: fg) {
+                        OptionSection(label: "Drink color", foreground: fg) {
                             ForEach(LiquidPalette.hexes, id: \.self) { hex in
                                 OptionDot(
                                     isSelected: vm.drinkColorHex == hex,
@@ -83,7 +82,7 @@ struct DrinkBuilderView: View {
                             }
                         }
 
-                        OptionSection(label: "ICE", foreground: fg) {
+                        OptionSection(label: "Ice", foreground: fg) {
                             ForEach(IceType.allCases) { ice in
                                 OptionDot(
                                     isSelected: vm.ice == ice,
@@ -97,7 +96,7 @@ struct DrinkBuilderView: View {
                             }
                         }
 
-                        OptionSection(label: "CITRUS", foreground: fg) {
+                        OptionSection(label: "Citrus", foreground: fg) {
                             ForEach(Citrus.allCases) { c in
                                 OptionDot(
                                     isSelected: vm.citrus.contains(c),
@@ -112,7 +111,7 @@ struct DrinkBuilderView: View {
                             }
                         }
 
-                        OptionSection(label: "GARNISHES", foreground: fg) {
+                        OptionSection(label: "Garnishes", foreground: fg) {
                             ForEach(Garnish.allCases) { g in
                                 OptionDot(
                                     isSelected: vm.garnishes.contains(g),
@@ -127,7 +126,7 @@ struct DrinkBuilderView: View {
                             }
                         }
 
-                        OptionSection(label: "EXTRAS", foreground: fg) {
+                        OptionSection(label: "Extras", foreground: fg) {
                             ForEach(Extra.allCases) { e in
                                 OptionDot(
                                     isSelected: vm.extras.contains(e),
@@ -160,8 +159,7 @@ private struct OptionSection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(label)
-                .font(.tinctaUILabel(12))
-                .tracking(2.4)
+                .font(.tinctaUILabel(14))
                 .foregroundStyle(foreground.opacity(0.85))
                 .padding(.horizontal, 24)
             ScrollView(.horizontal, showsIndicators: false) {

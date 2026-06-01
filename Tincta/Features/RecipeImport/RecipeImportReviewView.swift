@@ -116,7 +116,7 @@ private struct DraftCard: View {
                 .scaleEffect(0.8)
                 .frame(width: 50)
 
-            Text(draft.name.uppercased())
+            Text(draft.name)
                 .font(.tinctaDisplay(20))
                 .foregroundStyle(fg)
                 .lineLimit(1)
@@ -148,7 +148,7 @@ private struct DraftCard: View {
 
     private func nameField(fg: Color) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionLabel("NAME", fg: fg)
+            sectionLabel("Name", fg: fg)
             TextField("Drink name", text: $draft.name)
                 .font(.tinctaBody(16))
                 .foregroundStyle(fg)
@@ -161,14 +161,13 @@ private struct DraftCard: View {
     private func ingredientsSection(fg: Color) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                sectionLabel("INGREDIENTS", fg: fg)
+                sectionLabel("Ingredients", fg: fg)
                 Spacer()
                 Button {
                     draft.addIngredient()
                 } label: {
                     Label("Add", systemImage: "plus")
-                        .font(.tinctaUILabel(11))
-                        .tracking(1.2)
+                        .font(.tinctaUILabel(13))
                         .foregroundStyle(fg)
                 }
             }
@@ -185,7 +184,7 @@ private struct DraftCard: View {
 
     private func directionsSection(fg: Color) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionLabel("DIRECTIONS", fg: fg)
+            sectionLabel("Directions", fg: fg)
             TextEditor(text: $draft.directions)
                 .scrollContentBackground(.hidden)
                 .frame(minHeight: 100, maxHeight: 200)
@@ -198,7 +197,7 @@ private struct DraftCard: View {
 
     private func creditField(fg: Color) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            sectionLabel("RECIPE CREDIT", fg: fg)
+            sectionLabel("Recipe credit", fg: fg)
             TextField("Optional", text: $draft.credit)
                 .font(.tinctaBody(15))
                 .foregroundStyle(fg)
@@ -215,9 +214,8 @@ private struct DraftCard: View {
                     .fill(Color(hex: draft.backgroundColorHex))
                     .overlay(Circle().stroke(fg.opacity(0.4), lineWidth: 1))
                     .frame(width: 18, height: 18)
-                Text("CARD COLOR")
-                    .font(.tinctaUILabel(11))
-                    .tracking(1.2)
+                Text("Card color")
+                    .font(.tinctaUILabel(13))
                     .foregroundStyle(fg)
                 Spacer()
                 Image(systemName: "chevron.right")
@@ -233,8 +231,7 @@ private struct DraftCard: View {
 
     private func sectionLabel(_ text: String, fg: Color) -> some View {
         Text(text)
-            .font(.tinctaUILabel(10))
-            .tracking(1.4)
+            .font(.tinctaUILabel(13))
             .foregroundStyle(fg.opacity(0.6))
     }
 

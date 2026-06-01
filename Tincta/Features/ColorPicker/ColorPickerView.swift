@@ -62,9 +62,8 @@ public struct ColorPickerView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 14, weight: .semibold))
-                        Text("BACK")
-                            .font(.tinctaUILabel(13))
-                            .tracking(1.4)
+                        Text("Back")
+                            .font(.tinctaUILabel(15))
                     }
                     .foregroundStyle(.white)
                     .padding(.horizontal, 18)
@@ -77,9 +76,8 @@ public struct ColorPickerView: View {
                 Spacer()
             }
 
-            Text("CHOOSE COLOR")
-                .font(.tinctaUILabel(14))
-                .tracking(2.0)
+            Text("Choose color")
+                .font(.tinctaUILabel(16))
                 .foregroundStyle(.white)
                 .accessibilityAddTraits(.isHeader)
         }

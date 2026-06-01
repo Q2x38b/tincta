@@ -159,62 +159,54 @@ struct LibraryView: View {
 
     // MARK: - Floating controls
 
+    /// Two glass chips along the top: search on the left, dropdown menu on
+    /// the right. New Recipe + scan options + settings all live inside the
+    /// dropdown — no more floating + button.
     private var floatingControls: some View {
-        VStack {
-            HStack {
-                // Search button — top-left. Indexes by recipe name + ingredient.
-                Button {
-                    showSearch = true
-                } label: {
-                    GlassChip(systemImage: "magnifyingglass")
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Search recipes")
-                .padding(.top, 12)
-                .padding(.leading, 18)
-
-                Spacer()
-
-                // Native dropdown: glass label expands into the menu on tap.
-                Menu {
-                    Section {
-                        Button {
-                            scanSource = .camera
-                        } label: { Label("Scan with Camera", systemImage: "camera") }
-                        Button {
-                            scanSource = .photos
-                        } label: { Label("Pick from Photos", systemImage: "photo.on.rectangle") }
-                        Button {
-                            scanSource = .files
-                        } label: { Label("Choose Files", systemImage: "folder") }
-                    }
-                    Section {
-                        Button {
-                            showSettings = true
-                        } label: { Label("Settings", systemImage: "gearshape") }
-                        Button {
-                            showAbout = true
-                        } label: { Label("About", systemImage: "info.circle") }
-                    }
-                } label: {
-                    GlassChip(systemImage: "ellipsis")
-                }
-                .menuStyle(.button)
-                .accessibilityLabel("Library menu")
-                .padding(.top, 12)
-                .padding(.trailing, 18)
+        HStack {
+            Button {
+                showSearch = true
+            } label: {
+                GlassChip(systemImage: "magnifyingglass")
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Search recipes")
+            .padding(.leading, 18)
+
             Spacer()
-            HStack {
-                Spacer()
-                GlassButton(systemImage: "plus") {
+
+            Menu {
+                Button {
                     editorTarget = .new
+                } label: { Label("New Recipe", systemImage: "plus") }
+                Section {
+                    Button {
+                        scanSource = .camera
+                    } label: { Label("Scan with Camera", systemImage: "camera") }
+                    Button {
+                        scanSource = .photos
+                    } label: { Label("Pick from Photos", systemImage: "photo.on.rectangle") }
+                    Button {
+                        scanSource = .files
+                    } label: { Label("Choose Files", systemImage: "folder") }
                 }
-                .accessibilityLabel("New recipe")
-                .padding(.bottom, 28)
-                .padding(.trailing, 18)
+                Section {
+                    Button {
+                        showSettings = true
+                    } label: { Label("Settings", systemImage: "gearshape") }
+                    Button {
+                        showAbout = true
+                    } label: { Label("About", systemImage: "info.circle") }
+                }
+            } label: {
+                GlassChip(systemImage: "ellipsis")
             }
+            .menuStyle(.button)
+            .accessibilityLabel("Library menu")
+            .padding(.trailing, 18)
         }
+        .padding(.top, 12)
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 }
 
