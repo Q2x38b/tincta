@@ -50,11 +50,13 @@ targets:
         # Crimson Pro — bundled under SIL Open Font License v1.1.
         # License text ships in Tincta/Resources/Fonts/OFL.txt and is
         # also credited in AboutView.
-        UIAppFonts:
-          - CrimsonPro-Regular.ttf
-          - CrimsonPro-Italic.ttf
-          - CrimsonPro-Medium.ttf
-          - CrimsonPro-MediumItalic.ttf
+        #
+        # NOT registered via UIAppFonts on purpose — that forces iOS to
+        # parse + validate the TTFs ON the main launch thread before the
+        # first frame paints, which was a measurable contributor to the
+        # cold-launch "stuck splash" complaint. Registered at runtime via
+        # CTFontManagerRegisterFontsForURL from a detached background task
+        # in TinctaApp.init instead.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.tincta.app

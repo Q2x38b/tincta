@@ -67,10 +67,10 @@ public struct AboutView: View {
                 )
                 .padding(.horizontal, 20)
 
-                // Credits — required by the licenses on the bundled
-                // assets. SIL OFL v1.1 (Crimson Pro) and CC BY-SA 4.0
-                // (OpenMoji). Full license texts ship at
-                // Tincta/Resources/Fonts/OFL.txt and OPENMOJI_LICENSE.txt.
+                // Credits — required by the licenses on the bundled assets.
+                // SIL OFL v1.1 (Crimson Pro) and MIT (Phosphor Icons).
+                // OFL full text ships at Tincta/Resources/Fonts/OFL.txt;
+                // Phosphor MIT notice is below.
                 VStack(spacing: 0) {
                     aboutRow(icon: "textformat",
                              title: "Type",
@@ -78,7 +78,7 @@ public struct AboutView: View {
                     Divider().padding(.leading, 52)
                     aboutRow(icon: "wineglass",
                              title: "Drink art",
-                             subtitle: "OpenMoji — the open-source emoji + icon project. CC BY-SA 4.0.")
+                             subtitle: "Phosphor Icons by Helena Zhang & Tobias Fried, MIT License. Some drink graphics are procedural SwiftUI shapes drawn by Tincta itself.")
                 }
                 .background(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)

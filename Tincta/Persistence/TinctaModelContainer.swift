@@ -14,18 +14,33 @@ enum TinctaModelContainer {
         SizeAmount.self,
     ])
 
-    /// The on-disk configuration we use for both sync + async openers. The
-    /// `cloudKitDatabase: .none` is explicit so SwiftData doesn't try to
-    /// negotiate with CloudKit on launch (which is one of the biggest
-    /// hidden time-sinks during cold start on real devices, and we don't
-    /// use sync anyway).
+    /// The on-disk configuration we use for both sync + async openers.
+    /// - `cloudKitDatabase: .none` — skip CloudKit negotiation on launch
+    ///   (a known cold-start time-sink on real devices).
+    /// - explicit `url:` — point at our own file under the app's
+    ///   Application Support so SwiftData doesn't run any default-location
+    ///   discovery (which on first launch can call into store coordination
+    ///   services that occasionally block).
     private static var liveConfig: ModelConfiguration {
         ModelConfiguration(
             schema: schema,
-            isStoredInMemoryOnly: false,
+            url: storeURL,
             allowsSave: true,
             cloudKitDatabase: .none
         )
+    }
+
+    /// `Application Support/Tincta/tincta.store`. Created if missing.
+    private static var storeURL: URL {
+        let support = (try? FileManager.default.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )) ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        let folder = support.appendingPathComponent("Tincta", isDirectory: true)
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        return folder.appendingPathComponent("tincta.store")
     }
 
     /// Opens the persistent store WITHOUT any actor isolation, so it can

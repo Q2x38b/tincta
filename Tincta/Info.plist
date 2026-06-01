@@ -24,13 +24,6 @@
 	<string>Tincta uses the camera to scan cocktail recipes and turn them into editable entries in your library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Tincta reads images you pick so it can scan cocktail recipes from photos and create editable recipes.</string>
-	<key>UIAppFonts</key>
-	<array>
-		<string>CrimsonPro-Regular.ttf</string>
-		<string>CrimsonPro-Italic.ttf</string>
-		<string>CrimsonPro-Medium.ttf</string>
-		<string>CrimsonPro-MediumItalic.ttf</string>
-	</array>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchScreen</key>

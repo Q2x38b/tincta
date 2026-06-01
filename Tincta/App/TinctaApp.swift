@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import CoreText
 import os
 
 private let launchLog = Logger(subsystem: "com.tincta.app", category: "launch")
@@ -10,6 +11,14 @@ struct TinctaApp: App {
 
     init() {
         launchLog.notice("TinctaApp.init")
+        // Register bundled fonts on a background task. We previously listed
+        // them in Info.plist's UIAppFonts which forces iOS to parse + validate
+        // the TTFs ON the main launch thread before showing the first frame —
+        // measurable cause of the "stuck splash" report. CTFontManager does
+        // the same thing but we can fire it off-main.
+        Task.detached(priority: .userInitiated) {
+            Self.registerBundledFonts()
+        }
     }
 
     var body: some Scene {
@@ -28,38 +37,20 @@ struct TinctaApp: App {
         }
     }
 
-    // MARK: - Splash
+    // MARK: - Splash (intentionally minimal)
 
-    /// Plain static splash — NO pulse animation. The previous infinite
-    /// .repeatForever drove a SwiftUI runloop heartbeat that competed with
-    /// the (already slow) container init for main-thread cycles. A static
-    /// image is also what iOS's own launch screen renders, so transitioning
-    /// from launch image → this view is visually seamless.
+    /// Just a colour + tiny spinner. NO Image (forces asset lookup), NO Text
+    /// (forces font resolution), NO glassEffect (forces Metal shader compile
+    /// before first frame). The whole point is for `body` to return as fast
+    /// as possible so `.onAppear` actually fires and kicks off the container
+    /// load — anything heavy in `body` delays both the splash being visible
+    /// AND the load starting.
     private var splash: some View {
         ZStack {
             Color.tinctaInk.ignoresSafeArea()
-            VStack(spacing: 22) {
-                Image("Logo")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 132, height: 132)
-                    .opacity(0.85)
-                Text("Loading…")
-                    .font(.tinctaUILabel(13))
-                    .foregroundStyle(.white.opacity(0.45))
-            }
-
-            // Pre-warm the Liquid Glass Metal shader off-screen. The first
-            // time a glassEffect renders on iOS, the shader compiles and
-            // that compile blocks the main thread for ~300-800ms. Mounting
-            // a tiny invisible GlassChip during the splash means the shader
-            // is already compiled by the time the user sees the Library's
-            // floating chips — no visible freeze on first paint.
-            GlassChip(systemImage: "circle")
-                .frame(width: 1, height: 1)
-                .opacity(0.001)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
+            ProgressView()
+                .tint(.white.opacity(0.6))
+                .controlSize(.small)
         }
         .accessibilityLabel("Loading Tincta")
     }
@@ -79,5 +70,28 @@ struct TinctaApp: App {
                 self.container = store
             }
         }
+    }
+
+    // MARK: - Font registration
+
+    private static func registerBundledFonts() {
+        let filenames = [
+            "CrimsonPro-Regular",
+            "CrimsonPro-Italic",
+            "CrimsonPro-Medium",
+            "CrimsonPro-MediumItalic",
+        ]
+        for filename in filenames {
+            guard let url = Bundle.main.url(forResource: filename, withExtension: "ttf") else {
+                launchLog.error("Font missing from bundle: \(filename, privacy: .public)")
+                continue
+            }
+            var error: Unmanaged<CFError>?
+            if !CTFontManagerRegisterFontsForURL(url as CFURL, .process, &error) {
+                let e = error?.takeRetainedValue()
+                launchLog.error("Font register failed \(filename, privacy: .public): \(String(describing: e), privacy: .public)")
+            }
+        }
+        launchLog.notice("Custom fonts registered")
     }
 }
