@@ -1,5 +1,8 @@
 import SwiftUI
 import SwiftData
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// The Library home screen — a vertical stack of overlapping rounded recipe
 /// cards rendered against a near-black background, matching the design mocks.
@@ -13,7 +16,12 @@ import SwiftData
 ///   of earlier ones, covering their bottom edge so titles read top-to-bottom.
 struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Recipe.createdAt, order: .reverse) private var recipes: [Recipe]
+    @Query(
+        sort: [
+            SortDescriptor(\Recipe.sortOrder, order: .forward),
+            SortDescriptor(\Recipe.createdAt, order: .reverse)
+        ]
+    ) private var recipes: [Recipe]
 
     @State private var viewModel = LibraryViewModel()
     @Namespace private var cardNamespace
@@ -29,6 +37,29 @@ struct LibraryView: View {
     /// AND by the pull-down-to-search gesture. NOT a sheet anymore.
     @State private var showInlineSearch = false
     @FocusState private var searchFieldFocused: Bool
+
+    // MARK: - Drag-to-reorder state
+    //
+    // When the user long-presses a card it "lifts" (scales, drops shadow,
+    // rotates slightly), then they can drag it up or down. Other cards
+    // reflow in discrete `cardOverlap` increments to show the drop slot.
+    // Reorder is suppressed while a search query is active (the on-screen
+    // order isn't the canonical order in that case).
+    /// UUID of the recipe currently being dragged. nil = no drag active.
+    @State private var draggingRecipeID: UUID? = nil
+    /// Continuous vertical translation of the dragged card's finger.
+    @State private var dragTranslation: CGFloat = 0
+    /// Original index of the card being dragged (within `displayedRecipes`).
+    @State private var draggedFromIndex: Int? = nil
+    /// Index the card would land at if released now. Re-derived from
+    /// `dragTranslation` on every change.
+    @State private var draggedToIndex: Int? = nil
+    /// Reusable haptics for the lift / cross-threshold / drop moments.
+    #if canImport(UIKit)
+    @State private var liftHaptic = UIImpactFeedbackGenerator(style: .soft)
+    @State private var slotHaptic = UISelectionFeedbackGenerator()
+    @State private var dropHaptic = UIImpactFeedbackGenerator(style: .medium)
+    #endif
 
     /// Vertical overlap between consecutive cards. Cards now have a
     /// minHeight of 280pt and grow with ingredient count. Overlap of ~150pt
@@ -50,6 +81,9 @@ struct LibraryView: View {
 
             floatingControls
                 .zIndex(3)
+        }
+        .onAppear {
+            migrateSortOrderIfNeeded()
         }
         // Pull-down-to-search trigger from the view-model now expands the
         // INLINE search bar in place rather than opening a separate sheet.
@@ -141,15 +175,26 @@ struct LibraryView: View {
     @ViewBuilder
     private func stickyCard(recipe: Recipe, index: Int, matchHint: LibraryViewModel.MatchKind) -> some View {
         let stickyY: CGFloat = 64
+        let isDragging = draggingRecipeID == recipe.id
+        let reflow = reflowOffset(forIndex: index)
+        // Lifted cards skip sticky-pin so they follow the finger cleanly.
+        let lifted = isDragging
         // Drop-shadow as a SEPARATE background layer behind the card so we
         // can fade it via .visualEffect.opacity (which is supported —
         // .shadow itself isn't a VisualEffect, so we can't put it inside
         // the closure directly).
         let shadowLayer = RoundedRectangle(cornerRadius: 26, style: .continuous)
             .fill(Color.clear)
-            .shadow(color: .black.opacity(0.45), radius: 3, x: 0, y: -1)
-            .shadow(color: .black.opacity(0.30), radius: 14, x: 0, y: 6)
-            .visualEffect { content, geo in
+            .shadow(color: .black.opacity(lifted ? 0.55 : 0.45),
+                    radius: lifted ? 12 : 3,
+                    x: 0, y: lifted ? 8 : -1)
+            .shadow(color: .black.opacity(lifted ? 0.45 : 0.30),
+                    radius: lifted ? 28 : 14,
+                    x: 0, y: lifted ? 18 : 6)
+            .visualEffect { [lifted] content, geo in
+                if lifted {
+                    return content.opacity(1)
+                }
                 let minY = geo.frame(in: .scrollView(axis: .vertical)).minY
                 let pinAmount = max(0, stickyY - minY)
                 // Shadow opacity 1.0 while scrolling, fades to 0 over the
@@ -160,6 +205,9 @@ struct LibraryView: View {
             }
 
         Button {
+            // Suppress tap while a drag is active so the long-press lift
+            // doesn't immediately also open the detail sheet on release.
+            guard draggingRecipeID == nil else { return }
             detailRecipe = recipe
         } label: {
             RecipeCardView(
@@ -170,14 +218,159 @@ struct LibraryView: View {
         }
         .buttonStyle(.plain)
         .background(shadowLayer)
+        .scaleEffect(lifted ? 1.04 : 1.0, anchor: .center)
+        .rotationEffect(.degrees(lifted ? -2 : 0), anchor: .center)
         // Sticky-stack: pin to `stickyY` once the top crosses the viewport
-        // top inset. Later cards stack ON TOP via the zIndex below.
-        .visualEffect { content, geo in
+        // top inset. Later cards stack ON TOP via the zIndex below. While
+        // a card is lifted we use a plain .offset(y:) following the finger
+        // INSTEAD of the sticky-pin, so the dragged card moves smoothly.
+        .visualEffect { [lifted] content, geo in
+            if lifted {
+                return content.offset(y: 0)
+            }
             let minY = geo.frame(in: .scrollView(axis: .vertical)).minY
             let pinAmount = max(0, stickyY - minY)
             return content.offset(y: pinAmount)
         }
-        .zIndex(Double(index))
+        .offset(y: lifted ? dragTranslation : reflow)
+        .animation(.spring(response: 0.32, dampingFraction: 0.78), value: reflow)
+        .animation(.spring(response: 0.32, dampingFraction: 0.78), value: lifted)
+        // Lifted cards float above everything else.
+        .zIndex(lifted ? 9_999 : Double(index))
+        .gesture(reorderGesture(for: recipe, at: index))
+    }
+
+    /// How far card `index` should slide to make room for the dragged
+    /// card. Returns 0 unless something is actively being dragged.
+    private func reflowOffset(forIndex index: Int) -> CGFloat {
+        guard
+            let from = draggedFromIndex,
+            let to = draggedToIndex,
+            from != to,
+            index != from
+        else { return 0 }
+        // Card was BELOW the source slot but moved at-or-above the new
+        // target → it needs to shift UP by one slot height.
+        if from < to, index > from, index <= to {
+            return -cardOverlap
+        }
+        // Card was ABOVE the source slot but the drag has moved past it
+        // → shift DOWN.
+        if to < from, index < from, index >= to {
+            return cardOverlap
+        }
+        return 0
+    }
+
+    /// Long-press + drag gesture wired onto each card. Suppressed during
+    /// search (the visible order isn't canonical when filtered).
+    private func reorderGesture(for recipe: Recipe, at index: Int) -> some Gesture {
+        let isFiltered = !viewModel.searchText.trimmingCharacters(in: .whitespaces).isEmpty
+        return LongPressGesture(minimumDuration: 0.35, maximumDistance: 12)
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))
+            .onChanged { value in
+                guard !isFiltered else { return }
+                switch value {
+                case .first(true):
+                    // Long press has succeeded — lift the card.
+                    if draggingRecipeID == nil {
+                        beginDrag(for: recipe.id, fromIndex: index)
+                    }
+                case .second(true, let drag):
+                    guard let drag else { return }
+                    dragTranslation = drag.translation.height
+                    updateDropTarget()
+                default:
+                    break
+                }
+            }
+            .onEnded { _ in
+                guard draggingRecipeID == recipe.id else { return }
+                endDrag()
+            }
+    }
+
+    private func beginDrag(for recipeID: UUID, fromIndex: Int) {
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
+            draggingRecipeID = recipeID
+            draggedFromIndex = fromIndex
+            draggedToIndex = fromIndex
+            dragTranslation = 0
+        }
+        #if canImport(UIKit)
+        liftHaptic.impactOccurred(intensity: 0.6)
+        liftHaptic.prepare()
+        slotHaptic.prepare()
+        #endif
+    }
+
+    private func updateDropTarget() {
+        guard let from = draggedFromIndex else { return }
+        // Each slot is `cardOverlap` tall in visible terms — that's the
+        // distance the finger has to travel for the drop slot to move
+        // by one card.
+        let slotDelta = Int((dragTranslation / cardOverlap).rounded())
+        let total = displayedRecipes.count
+        let proposed = max(0, min(total - 1, from + slotDelta))
+        if proposed != draggedToIndex {
+            #if canImport(UIKit)
+            slotHaptic.selectionChanged()
+            slotHaptic.prepare()
+            #endif
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+                draggedToIndex = proposed
+            }
+        }
+    }
+
+    private func endDrag() {
+        let from = draggedFromIndex
+        let to = draggedToIndex
+        // Commit reorder BEFORE clearing state so the new sort takes
+        // effect on the same frame the card snaps into place.
+        if let f = from, let t = to, f != t {
+            commitReorder(from: f, to: t)
+            #if canImport(UIKit)
+            dropHaptic.impactOccurred(intensity: 0.85)
+            dropHaptic.prepare()
+            #endif
+        }
+        withAnimation(.spring(response: 0.34, dampingFraction: 0.78)) {
+            draggingRecipeID = nil
+            draggedFromIndex = nil
+            draggedToIndex = nil
+            dragTranslation = 0
+        }
+    }
+
+    /// Rewrites every Recipe.sortOrder in monotonic 0..N order to reflect
+    /// the new array position. Cheap — at most a few dozen rows.
+    private func commitReorder(from: Int, to: Int) {
+        var pairs = displayedRecipes.map(\.0)
+        guard from < pairs.count, to < pairs.count else { return }
+        let moved = pairs.remove(at: from)
+        pairs.insert(moved, at: to)
+        for (idx, recipe) in pairs.enumerated() where recipe.sortOrder != idx {
+            recipe.sortOrder = idx
+        }
+        do { try modelContext.save() } catch {
+            // Silent — the next library appearance will retry.
+        }
+    }
+
+    /// One-shot migration: if every recipe still has sortOrder == 0, the
+    /// `sortOrder` field was just introduced (or this is a fresh import).
+    /// Walk existing recipes in createdAt-desc order and assign sequential
+    /// sortOrder values so the deck preserves its current visual order.
+    private func migrateSortOrderIfNeeded() {
+        guard !recipes.isEmpty else { return }
+        let allZero = recipes.allSatisfy { $0.sortOrder == 0 }
+        guard allZero else { return }
+        let chronological = recipes.sorted { $0.createdAt > $1.createdAt }
+        for (idx, recipe) in chronological.enumerated() {
+            recipe.sortOrder = idx
+        }
+        try? modelContext.save()
     }
 
     private var cardStack: some View {

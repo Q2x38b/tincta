@@ -119,13 +119,14 @@ public extension Font {
         Font.system(size: size, weight: .semibold, design: .rounded)
     }
 
-    /// Italic serif used for ingredient lines.
-    /// `.light` weight makes the system fallback (New York italic) feel more
-    /// like a modern editorial serif rather than a heavy classical one. When
-    /// a custom font is bundled (Fraunces et al.) the weight token resolves
-    /// to that family's matching cut.
+    /// Font used for ingredient lines.
+    /// Previously a light italic serif (Crimson Pro / New York). Switched
+    /// to plain SF at regular weight per user request — the serif italic
+    /// was reading as too "recipe book" / formal for a tool the user wants
+    /// to feel native. SF here keeps the cards looking like the rest of
+    /// iOS without sacrificing density.
     static func tinctaIngredient(_ size: CGFloat = 24) -> Font {
-        TinctaFont.serif(size, weight: .light, italic: true)
+        Font.system(size: size, weight: .regular)
     }
 
     /// Body sans used for directions and longform text.

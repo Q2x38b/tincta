@@ -22,6 +22,11 @@ final class Recipe {
     var createdAt: Date
     var updatedAt: Date
     var groupTags: [String]
+    /// Manual position in the Library card stack. Lower = earlier in the
+    /// list. Drag-to-reorder rewrites this. Defaults to 0; on first
+    /// Library appear, a one-shot migration assigns sequential values to
+    /// every recipe based on existing createdAt-desc order.
+    var sortOrder: Int = 0
 
     init(
         id: UUID = UUID(),
@@ -31,7 +36,8 @@ final class Recipe {
         credit: String? = nil,
         groupTags: [String] = [],
         createdAt: Date = .now,
-        updatedAt: Date = .now
+        updatedAt: Date = .now,
+        sortOrder: Int = 0
     ) {
         self.id = id
         self.name = name
@@ -41,6 +47,7 @@ final class Recipe {
         self.groupTags = groupTags
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.sortOrder = sortOrder
     }
 
     /// Ingredients in the user-defined order.
