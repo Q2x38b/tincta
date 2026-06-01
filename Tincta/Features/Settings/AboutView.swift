@@ -73,7 +73,7 @@ public struct AboutView: View {
                 VStack(spacing: 0) {
                     aboutRow(icon: "textformat",
                              title: "Type",
-                             subtitle: "EB Garamond by Georg Duffner & Octavio Pardo, SIL Open Font License v1.1.")
+                             subtitle: "Crimson Pro by Sebastian Kosch & Jacques Le Bailly, SIL Open Font License v1.1.")
                 }
                 .background(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)

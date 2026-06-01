@@ -77,13 +77,10 @@ struct RecipeCardView: View {
                 .matchedGeometryEffect(id: "recipe-card-\(recipe.id)", in: namespace)
         )
         .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-        // Two layered shadows: a tight contact shadow + a softer ambient.
-        // The contact shadow makes the top edge of each card pop against
-        // the card under it (since later cards stack ON TOP of earlier
-        // ones, the visible edge is the TOP); the ambient gives the whole
-        // stack lift off the dark background.
-        .shadow(color: Color.black.opacity(0.45), radius: 3, x: 0, y: -1)
-        .shadow(color: Color.black.opacity(0.30), radius: 14, x: 0, y: 6)
+        // Shadows are applied OUTSIDE this view, in LibraryView's
+        // visualEffect — so they can fade to 0 when this card pins at the
+        // top of the viewport (otherwise stacked-at-top cards would have
+        // their shadows piling on each other and look muddy).
         .matchedTransitionSource(id: recipe.id, in: namespace)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(recipe.name))

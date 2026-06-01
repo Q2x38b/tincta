@@ -57,7 +57,8 @@ struct DrinkBuilderView: View {
                                 OptionDot(
                                     isSelected: vm.vessel == v,
                                     foreground: fg,
-                                    accessibilityLabel: v.display
+                                    accessibilityLabel: v.display,
+                                    caption: v.display
                                 ) {
                                     vm.vessel = v
                                 } content: {
@@ -68,6 +69,9 @@ struct DrinkBuilderView: View {
                             }
                         }
 
+                        // Colours intentionally have NO caption — raw hex
+                        // codes aren't user-meaningful and the swatch's
+                        // fill is the label.
                         OptionSection(label: "Drink color", foreground: fg) {
                             ForEach(LiquidPalette.hexes, id: \.self) { hex in
                                 OptionDot(
@@ -87,7 +91,8 @@ struct DrinkBuilderView: View {
                                 OptionDot(
                                     isSelected: vm.ice == ice,
                                     foreground: fg,
-                                    accessibilityLabel: ice.display
+                                    accessibilityLabel: ice.display,
+                                    caption: ice.display
                                 ) {
                                     vm.ice = ice
                                 } content: {
@@ -101,7 +106,8 @@ struct DrinkBuilderView: View {
                                 OptionDot(
                                     isSelected: vm.citrus.contains(c),
                                     foreground: fg,
-                                    accessibilityLabel: c.display
+                                    accessibilityLabel: c.display,
+                                    caption: c.display
                                 ) {
                                     vm.toggle(c)
                                 } content: {
@@ -116,7 +122,8 @@ struct DrinkBuilderView: View {
                                 OptionDot(
                                     isSelected: vm.garnishes.contains(g),
                                     foreground: fg,
-                                    accessibilityLabel: g.display
+                                    accessibilityLabel: g.display,
+                                    caption: g.display
                                 ) {
                                     vm.toggle(g)
                                 } content: {
@@ -131,7 +138,8 @@ struct DrinkBuilderView: View {
                                 OptionDot(
                                     isSelected: vm.extras.contains(e),
                                     foreground: fg,
-                                    accessibilityLabel: e.display
+                                    accessibilityLabel: e.display,
+                                    caption: e.display
                                 ) {
                                     vm.toggle(e)
                                 } content: {
@@ -178,26 +186,55 @@ private struct OptionDot<Content: View>: View {
     let isSelected: Bool
     let foreground: Color
     let accessibilityLabel: String
+    /// Visible label rendered under the dot. Omit for swatches where the
+    /// name isn't user-meaningful (e.g. raw hex colours).
+    let caption: String?
     let action: () -> Void
     @ViewBuilder var content: () -> Content
+
+    init(isSelected: Bool,
+         foreground: Color,
+         accessibilityLabel: String,
+         caption: String? = nil,
+         action: @escaping () -> Void,
+         @ViewBuilder content: @escaping () -> Content) {
+        self.isSelected = isSelected
+        self.foreground = foreground
+        self.accessibilityLabel = accessibilityLabel
+        self.caption = caption
+        self.action = action
+        self.content = content
+    }
 
     private let diameter: CGFloat = 64
 
     var body: some View {
-        Button(action: action) {
-            ZStack {
-                Circle()
-                    .fill(isSelected ? foreground : Color.clear)
-                Circle()
-                    .strokeBorder(foreground, lineWidth: 1.4)
-                content()
-                    .frame(width: diameter, height: diameter)
-                    .foregroundStyle(isSelected ? Color(hex: "#1A1A1A") : foreground)
-                    .blendMode(isSelected ? .normal : .normal)
+        VStack(spacing: 6) {
+            Button(action: action) {
+                ZStack {
+                    Circle()
+                        .fill(isSelected ? foreground : Color.clear)
+                    Circle()
+                        .strokeBorder(foreground, lineWidth: 1.4)
+                    content()
+                        .frame(width: diameter, height: diameter)
+                        .foregroundStyle(isSelected ? Color(hex: "#1A1A1A") : foreground)
+                }
+                .frame(width: diameter, height: diameter)
             }
-            .frame(width: diameter, height: diameter)
+            .buttonStyle(.plain)
+
+            if let caption {
+                Text(caption)
+                    .font(.tinctaUILabel(11))
+                    .foregroundStyle(foreground.opacity(0.8))
+                    .lineLimit(1)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: diameter * 1.35)
+                    .minimumScaleFactor(0.85)
+            }
         }
-        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
         .frame(minWidth: 44, minHeight: 44)

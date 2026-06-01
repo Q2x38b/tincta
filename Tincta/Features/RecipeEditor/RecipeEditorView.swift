@@ -345,26 +345,12 @@ struct RecipeEditorView: View {
 
     // MARK: - Credit
 
+    /// Extracted into its own subview (CreditField) below — same reason as
+    /// DirectionsField. Typing in the credit TextField was triggering a
+    /// full editor-body recompute per keystroke (ingredients + sizes +
+    /// DrinkPreview + everything), which was the lag.
     private var creditSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("Recipe credit")
-            TextField(
-                "",
-                text: $viewModel.credit,
-                prompt: Text("Who created this?")
-                    .font(.tinctaBody(16))
-                    .foregroundStyle(foreground.opacity(0.45))
-            )
-            .autocorrectionDisabled()
-            .font(.tinctaBody(16))
-            .foregroundStyle(foreground)
-            .padding(.vertical, 10)
-            .padding(.horizontal, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(foreground.opacity(0.08))
-            )
-        }
+        CreditField(text: $viewModel.credit, foreground: foreground)
     }
 
     // MARK: - Color row
@@ -423,6 +409,41 @@ struct RecipeEditorView: View {
         Text(text)
             .font(.tinctaUILabel(13))
             .foregroundStyle(foreground.opacity(0.65))
+    }
+}
+
+// MARK: - CreditField
+
+/// Same trick as DirectionsField below — standalone subview that owns
+/// only the binding + foreground colour, so typing in the credit field
+/// re-evaluates THIS subview only, not the entire editor body.
+private struct CreditField: View {
+    @Binding var text: String
+    let foreground: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Recipe credit")
+                .font(.tinctaUILabel(13))
+                .foregroundStyle(foreground.opacity(0.65))
+
+            TextField(
+                "",
+                text: $text,
+                prompt: Text("Who created this?")
+                    .font(.tinctaBody(16))
+                    .foregroundStyle(foreground.opacity(0.45))
+            )
+            .autocorrectionDisabled()
+            .font(.tinctaBody(16))
+            .foregroundStyle(foreground)
+            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(foreground.opacity(0.08))
+            )
+        }
     }
 }
 

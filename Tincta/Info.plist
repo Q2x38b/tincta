@@ -26,10 +26,10 @@
 	<string>Tincta reads images you pick so it can scan cocktail recipes from photos and create editable recipes.</string>
 	<key>UIAppFonts</key>
 	<array>
-		<string>EBGaramond-Regular.ttf</string>
-		<string>EBGaramond-Italic.ttf</string>
-		<string>EBGaramond-Medium.ttf</string>
-		<string>EBGaramond-MediumItalic.ttf</string>
+		<string>CrimsonPro-Regular.ttf</string>
+		<string>CrimsonPro-Italic.ttf</string>
+		<string>CrimsonPro-Medium.ttf</string>
+		<string>CrimsonPro-MediumItalic.ttf</string>
 	</array>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>

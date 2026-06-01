@@ -35,12 +35,12 @@ public enum TinctaFont {
     /// one that is actually registered in the app bundle wins. Add new
     /// candidates here — no other code needs to change.
     private static let preferredSerifFamilies: [String] = [
+        "Crimson Pro",       // ← bundled in Tincta/Resources/Fonts (OFL v1.1)
         "Fraunces",
-        "Fraunces 9pt",      // the "small" optical size, more contrast
-        "Crimson Pro",
+        "Fraunces 9pt",
         "EB Garamond",
         "Source Serif 4",
-        "Source Serif Pro",  // older Adobe name
+        "Source Serif Pro",
         "Lora",
     ]
 

@@ -21,7 +21,6 @@ struct LibraryView: View {
     // Sheet/overlay presentation state — owned by the Library since it's home.
     @State private var detailRecipe: Recipe?
     @State private var editorTarget: EditorTarget?
-    @State private var shareRecipe: Recipe?
     @State private var importPreview: ImportPreview?
     @State private var scanSource: RecipeImportSource?
     @State private var showSettings = false
@@ -61,10 +60,7 @@ struct LibraryView: View {
         // Recipe detail as a card sheet so swipe-down dismisses it like a stack
         // of cards instead of a full-screen navigation push.
         .sheet(item: $detailRecipe) { recipe in
-            RecipeDetailSheet(
-                recipe: recipe,
-                onShare: { shareRecipe = $0 }
-            )
+            RecipeDetailSheet(recipe: recipe)
             // Hero zoom — the system matches this id against the source on
             // the card and expands OUT OF the card's frame on present, and
             // shrinks BACK INTO it on dismiss. Symmetric, no separate
@@ -84,9 +80,10 @@ struct LibraryView: View {
         .sheet(item: $editorTarget) { target in
             RecipeEditorView(recipe: target.recipe)
         }
-        .sheet(item: $shareRecipe) { recipe in
-            RecipeShareSheet(recipe: recipe)
-        }
+        // Share sheet now lives inside RecipeDetailSheet — presenting it
+        // from here meant SwiftUI queued it behind the detail sheet
+        // (only one sheet at a time per host), which is why share
+        // appeared to do nothing.
         .sheet(item: $importPreview) { preview in
             ImportPreviewView(transfer: preview.transfer)
         }
@@ -133,6 +130,48 @@ struct LibraryView: View {
         viewModel.filtered(recipes)
     }
 
+    /// Per-card sticky-pin + fading-shadow wrapper. Extracted out of
+    /// `cardStack`'s ForEach so the compiler can type-check the body —
+    /// the chained .visualEffect + .offset + two .shadow modifiers were
+    /// pushing the parent body over the type-checker's complexity budget.
+    @ViewBuilder
+    private func stickyCard(recipe: Recipe, index: Int) -> some View {
+        let stickyY: CGFloat = 64
+        // Drop-shadow as a SEPARATE background layer behind the card so we
+        // can fade it via .visualEffect.opacity (which is supported —
+        // .shadow itself isn't a VisualEffect, so we can't put it inside
+        // the closure directly).
+        let shadowLayer = RoundedRectangle(cornerRadius: 26, style: .continuous)
+            .fill(Color.clear)
+            .shadow(color: .black.opacity(0.45), radius: 3, x: 0, y: -1)
+            .shadow(color: .black.opacity(0.30), radius: 14, x: 0, y: 6)
+            .visualEffect { content, geo in
+                let minY = geo.frame(in: .scrollView(axis: .vertical)).minY
+                let pinAmount = max(0, stickyY - minY)
+                // Shadow opacity 1.0 while scrolling, fades to 0 over the
+                // first 30pt of being pinned at the top of the viewport,
+                // so the deck doesn't read as a muddy dark blob.
+                let factor = max(0, 1 - pinAmount / 30)
+                return content.opacity(factor)
+            }
+
+        Button {
+            detailRecipe = recipe
+        } label: {
+            RecipeCardView(recipe: recipe, namespace: cardNamespace)
+        }
+        .buttonStyle(.plain)
+        .background(shadowLayer)
+        // Sticky-stack: pin to `stickyY` once the top crosses the viewport
+        // top inset. Later cards stack ON TOP via the zIndex below.
+        .visualEffect { content, geo in
+            let minY = geo.frame(in: .scrollView(axis: .vertical)).minY
+            let pinAmount = max(0, stickyY - minY)
+            return content.offset(y: pinAmount)
+        }
+        .zIndex(Double(index))
+    }
+
     private var cardStack: some View {
         ScrollView {
             // Track scroll offset for the pull-down-to-search gesture.
@@ -157,30 +196,7 @@ struct LibraryView: View {
                 Color.clear.frame(height: 88 + cardOverlap)
 
                 ForEach(Array(displayedRecipes.enumerated()), id: \.element.id) { index, recipe in
-                    Button {
-                        detailRecipe = recipe
-                    } label: {
-                        RecipeCardView(recipe: recipe, namespace: cardNamespace)
-                    }
-                    .buttonStyle(.plain)
-                    // Sticky-stack: when this card's top crosses the viewport's
-                    // top inset, pin it there. Later cards then slide up and
-                    // pile ON TOP (via zIndex below), so the deck visually
-                    // stacks at the top as the user scrolls. Uses iOS 17+
-                    // .scrollView coordinate space which behaves correctly
-                    // even with the parent's negative VStack spacing — the
-                    // named-coordinate-space version had subtle frame bugs
-                    // that made cards jump off-screen.
-                    .visualEffect { content, geometry in
-                        let minY = geometry.frame(in: .scrollView(axis: .vertical)).minY
-                        let stickyY: CGFloat = 64
-                        let shift = max(0, stickyY - minY)
-                        return content.offset(y: shift)
-                    }
-                    // LATER cards stack ON TOP of earlier ones — so when
-                    // they pile up at the top, the most-recent one is what's
-                    // actually visible (title-of-current-card on top).
-                    .zIndex(Double(index))
+                    stickyCard(recipe: recipe, index: index)
                 }
 
                 Color.clear.frame(height: cardOverlap + 80)
@@ -274,26 +290,29 @@ enum EditorTarget: Identifiable {
 
 // MARK: - Recipe detail sheet
 
-/// Adapter that renders `RecipeDetailView` inside a sheet, wiring the chevron
-/// dismiss to the sheet's own `dismiss` action and presenting the EDIT flow
-/// as a stacked sheet on top of itself (so tapping Edit opens immediately
-/// instead of waiting for the detail sheet to be closed first).
+/// Adapter that renders `RecipeDetailView` inside a sheet. Presents both
+/// the EDIT flow AND the SHARE sheet as stacked sheets ON TOP of itself —
+/// previously share was wired up to LibraryView which couldn't present it
+/// (the detail sheet was already showing, so the share queued forever).
 struct RecipeDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
     let recipe: Recipe
-    let onShare: (Recipe) -> Void
 
     @State private var showEditor = false
+    @State private var shareRecipe: Recipe?
 
     var body: some View {
         RecipeDetailView(
             recipe: recipe,
             onDismiss: { dismiss() },
             onEdit: { showEditor = true },
-            onShare: onShare
+            onShare: { shareRecipe = $0 }
         )
         .sheet(isPresented: $showEditor) {
             RecipeEditorView(recipe: recipe)
+        }
+        .sheet(item: $shareRecipe) { r in
+            RecipeShareSheet(recipe: r)
         }
     }
 }

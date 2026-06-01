@@ -47,14 +47,14 @@ targets:
         CFBundleDisplayName: Tincta
         NSCameraUsageDescription: "Tincta uses the camera to scan cocktail recipes and turn them into editable entries in your library."
         NSPhotoLibraryUsageDescription: "Tincta reads images you pick so it can scan cocktail recipes from photos and create editable recipes."
-        # EB Garamond — bundled under SIL Open Font License v1.1.
+        # Crimson Pro — bundled under SIL Open Font License v1.1.
         # License text ships in Tincta/Resources/Fonts/OFL.txt and is
         # also credited in AboutView.
         UIAppFonts:
-          - EBGaramond-Regular.ttf
-          - EBGaramond-Italic.ttf
-          - EBGaramond-Medium.ttf
-          - EBGaramond-MediumItalic.ttf
+          - CrimsonPro-Regular.ttf
+          - CrimsonPro-Italic.ttf
+          - CrimsonPro-Medium.ttf
+          - CrimsonPro-MediumItalic.ttf
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.tincta.app
