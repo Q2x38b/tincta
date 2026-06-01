@@ -40,20 +40,24 @@ struct LibraryView: View {
 
             cardStack
                 .overlay(alignment: .top) {
-                    if viewModel.isSearchPresented {
-                        LibrarySearchOverlay(
-                            searchText: $viewModel.searchText,
-                            onCancel: { withAnimation(.spring) { viewModel.dismissSearch() } }
-                        )
-                        .padding(.top, 8)
+                    pullSearchHint
+                        .padding(.top, 70)
+                        .allowsHitTesting(false)
                         .zIndex(2)
-                    }
                 }
 
             floatingControls
                 .zIndex(3)
         }
-        .animation(.spring(response: 0.45, dampingFraction: 0.85), value: viewModel.isSearchPresented)
+        // Watch the trigger flag set by the view-model when the user
+        // releases an overscroll past the threshold. We open the search
+        // sheet and clear the flag so the next pull can fire again.
+        .onChange(of: viewModel.shouldOpenSearch) { _, newValue in
+            if newValue {
+                viewModel.clearOpenSearchTrigger()
+                showSearch = true
+            }
+        }
         // Recipe detail as a card sheet so swipe-down dismisses it like a stack
         // of cards instead of a full-screen navigation push.
         .sheet(item: $detailRecipe) { recipe in
@@ -70,10 +74,12 @@ struct LibraryView: View {
             // as the card itself growing rather than a generic sheet.
             .presentationCornerRadius(26)
             .presentationBackground(Color(hex: recipe.backgroundColorHex))
-            // Drag indicator removed — it gave the surface a "sheet" feel
-            // (with the implication of a card behind that you could see),
-            // which fought the zoom-from-card hero behaviour. Swipe-down
-            // still dismisses; you just don't see the pill.
+            // CRITICAL — without this, a tiny downward swipe anywhere in
+            // the sheet's content was dismissing it. With `.scrolls` the
+            // scroll gesture takes priority: the inner ScrollView scrolls
+            // first, and ONLY when it's already at the top + the user keeps
+            // dragging down does the sheet's swipe-to-dismiss engage.
+            .presentationContentInteraction(.scrolls)
         }
         .sheet(item: $editorTarget) { target in
             RecipeEditorView(recipe: target.recipe)
@@ -96,6 +102,29 @@ struct LibraryView: View {
             }
         }
         .handleTinctaImportLink(into: modelContext, presented: $importPreview)
+    }
+
+    // MARK: - Pull-down search hint
+
+    /// Magnifying-glass glyph that fades + scales in as the user pulls the
+    /// card list past the top. Bound to `viewModel.pullProgress` (0…1).
+    /// Haptics + the actual sheet trigger live in the view-model.
+    private var pullSearchHint: some View {
+        let progress = viewModel.pullProgress
+        return VStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.6 + progress * 0.4))
+                .scaleEffect(0.7 + progress * 0.5)
+            if progress >= 1 {
+                Text("Release to search")
+                    .font(.tinctaUILabel(11))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .transition(.opacity)
+            }
+        }
+        .opacity(progress)
+        .animation(.easeOut(duration: 0.18), value: progress >= 1)
     }
 
     // MARK: - Card stack
@@ -156,7 +185,8 @@ struct LibraryView: View {
 
                 Color.clear.frame(height: cardOverlap + 80)
             }
-            .padding(.horizontal, 14)
+            // Edge-to-edge — cards touch the left/right edges of the viewport.
+            // Was .padding(.horizontal, 14).
         }
         // Allow cards to render past the ScrollView's clip bounds so they
         // don't pop in/out at the viewport edges.

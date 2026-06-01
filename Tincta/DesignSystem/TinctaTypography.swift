@@ -112,9 +112,11 @@ public enum TinctaFont {
 }
 
 public extension Font {
-    /// Display caps title used on card headers and recipe names.
+    /// Display title used on card headers and the recipe-detail title.
+    /// Switched to `design: .rounded` (SF Rounded) — softer letterforms
+    /// that pair better with the serif ingredient lines than default SF Pro.
     static func tinctaDisplay(_ size: CGFloat = 36) -> Font {
-        TinctaFont.sans(size, weight: .semibold)
+        Font.system(size: size, weight: .semibold, design: .rounded)
     }
 
     /// Italic serif used for ingredient lines.
