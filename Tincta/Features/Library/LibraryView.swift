@@ -54,6 +54,10 @@ struct LibraryView: View {
     /// Index the card would land at if released now. Re-derived from
     /// `dragTranslation` on every change.
     @State private var draggedToIndex: Int? = nil
+    /// Drag-translation at the moment the long-press fired. Subtracted
+    /// from each subsequent translation so the card doesn't jump by the
+    /// finger's pre-press travel when the gesture lifts.
+    @State private var dragBaseTranslation: CGFloat = 0
     /// Reusable haptics for the lift / cross-threshold / drop moments.
     #if canImport(UIKit)
     @State private var liftHaptic = UIImpactFeedbackGenerator(style: .soft)
@@ -270,27 +274,54 @@ struct LibraryView: View {
 
     /// Long-press + drag gesture wired onto each card. Suppressed during
     /// search (the visible order isn't canonical when filtered).
+    ///
+    /// Uses `LongPressGesture.simultaneously(with: DragGesture)` rather
+    /// than `.sequenced(before:)` because the sequenced variant has a
+    /// long-standing SwiftUI bug: once the long press fires, the touch
+    /// isn't reliably handed off to the inner DragGesture with a single
+    /// finger — users have to lift and re-touch (or use a second
+    /// finger) for the drag to register. Simultaneous gestures share
+    /// the same touch end-to-end, so a single finger long-press then
+    /// drag works.
+    ///
+    /// To stop the gesture from intercepting scroll swipes, the
+    /// LongPressGesture's `maximumDistance` is left at the default 10pt
+    /// — any swipe that's actually a scroll moves far enough in the
+    /// first ~0.1s to cancel the press, so the ScrollView's gesture
+    /// wins as normal.
     private func reorderGesture(for recipe: Recipe, at index: Int) -> some Gesture {
         let isFiltered = !viewModel.searchText.trimmingCharacters(in: .whitespaces).isEmpty
-        return LongPressGesture(minimumDuration: 0.35, maximumDistance: 12)
-            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))
+        let press = LongPressGesture(minimumDuration: 0.35, maximumDistance: 10)
+        let drag = DragGesture(minimumDistance: 0, coordinateSpace: .local)
+        return press.simultaneously(with: drag)
             .onChanged { value in
                 guard !isFiltered else { return }
-                switch value {
-                case .first(true):
-                    // Long press has succeeded — lift the card.
-                    if draggingRecipeID == nil {
-                        beginDrag(for: recipe.id, fromIndex: index)
-                    }
-                case .second(true, let drag):
-                    guard let drag else { return }
-                    dragTranslation = drag.translation.height
+                let pressFired = value.first ?? false
+                let dragValue = value.second
+
+                // Long press just succeeded → enter drag mode. Capture
+                // the drag translation at THIS moment so subsequent
+                // movement is relative to here, not to where the finger
+                // first touched down (which can be ~0.35s of jitter
+                // earlier).
+                if pressFired && draggingRecipeID == nil {
+                    dragBaseTranslation = dragValue?.translation.height ?? 0
+                    beginDrag(for: recipe.id, fromIndex: index)
+                }
+
+                // Track movement only once the press has fired and
+                // committed this card as the dragged one. Pre-press
+                // jitter is ignored.
+                if draggingRecipeID == recipe.id, let drag = dragValue {
+                    dragTranslation = drag.translation.height - dragBaseTranslation
                     updateDropTarget()
-                default:
-                    break
                 }
             }
             .onEnded { _ in
+                // The simultaneous gesture's onEnded fires on every
+                // touch-up, including quick taps where the press never
+                // fired. Guard so we only run cleanup when WE owned the
+                // drag.
                 guard draggingRecipeID == recipe.id else { return }
                 endDrag()
             }
@@ -330,22 +361,49 @@ struct LibraryView: View {
     }
 
     private func endDrag() {
-        let from = draggedFromIndex
-        let to = draggedToIndex
-        // Commit reorder BEFORE clearing state so the new sort takes
-        // effect on the same frame the card snaps into place.
-        if let f = from, let t = to, f != t {
-            commitReorder(from: f, to: t)
-            #if canImport(UIKit)
+        guard let from = draggedFromIndex else {
+            resetDragState()
+            return
+        }
+        let to = draggedToIndex ?? from
+        // Phase 1: spring the dragged card to its target slot's VISUAL
+        // position (where it would naturally sit at index `to` after the
+        // reorder). The SwiftData write is deferred to the completion
+        // block — running it here would re-fire @Query mid-spring, which
+        // is what caused the "card stays floating in a broken spot" bug.
+        let visualTarget = CGFloat(to - from) * cardOverlap
+
+        #if canImport(UIKit)
+        if from != to {
             dropHaptic.impactOccurred(intensity: 0.85)
             dropHaptic.prepare()
-            #endif
         }
-        withAnimation(.spring(response: 0.34, dampingFraction: 0.78)) {
+        #endif
+
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+            dragTranslation = visualTarget
+        } completion: {
+            // Phase 2: commit the reorder, then clear all drag state.
+            // The array reorder shifts the card's natural position by
+            // exactly `visualTarget`, so the moment we also reset
+            // dragTranslation → 0 the card stays put visually — no jump.
+            if from != to {
+                commitReorder(from: from, to: to)
+            }
+            resetDragState()
+        }
+    }
+
+    /// Clears every drag-related @State back to its idle value. Wrapped
+    /// in a spring so the lift visuals (scale, rotation, shadow) animate
+    /// smoothly back to flat.
+    private func resetDragState() {
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
             draggingRecipeID = nil
             draggedFromIndex = nil
             draggedToIndex = nil
             dragTranslation = 0
+            dragBaseTranslation = 0
         }
     }
 
