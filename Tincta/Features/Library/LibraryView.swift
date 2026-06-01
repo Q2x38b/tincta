@@ -247,7 +247,14 @@ struct LibraryView: View {
         .animation(.spring(response: 0.32, dampingFraction: 0.78), value: lifted)
         // Lifted cards float above everything else.
         .zIndex(lifted ? 9_999 : Double(index))
-        .gesture(reorderGesture(for: recipe, at: index))
+        // .simultaneousGesture (NOT .gesture) so the ScrollView's pan
+        // still receives touches before a long-press fires — otherwise
+        // attaching a high-priority gesture to every card means the user
+        // can never scroll the library. The companion scrollDisabled()
+        // call on the ScrollView toggles off ONLY after a press succeeds,
+        // so during the actual drag the ScrollView gets out of the way
+        // and our DragGesture is the sole consumer of finger movement.
+        .simultaneousGesture(reorderGesture(for: recipe, at: index))
     }
 
     /// How far card `index` should slide to make room for the dragged
@@ -328,11 +335,15 @@ struct LibraryView: View {
     }
 
     private func beginDrag(for recipeID: UUID, fromIndex: Int) {
+        // Reset translation OUTSIDE withAnimation. If the same frame that
+        // fires the long-press also delivers an onChanged with a non-zero
+        // translation, we want that translation to apply instantly to a
+        // zeroed base, not animate through a spring.
+        dragTranslation = 0
         withAnimation(.spring(response: 0.28, dampingFraction: 0.75)) {
             draggingRecipeID = recipeID
             draggedFromIndex = fromIndex
             draggedToIndex = fromIndex
-            dragTranslation = 0
         }
         #if canImport(UIKit)
         liftHaptic.impactOccurred(intensity: 0.6)
@@ -480,6 +491,15 @@ struct LibraryView: View {
         .scrollClipDisabled()
         .scrollIndicators(.hidden)
         .coordinateSpace(name: "library-scroll")
+        // Suspend scroll while a drag is active. Before a long-press
+        // fires, scroll works normally because the gesture on each card
+        // is `.simultaneousGesture` (it observes touches without
+        // blocking the ScrollView). The moment the press succeeds and
+        // `draggingRecipeID` becomes non-nil, scroll yields so the
+        // DragGesture is the only thing tracking finger movement — that
+        // keeps the lifted card glued to the finger instead of
+        // "ghost-scrolling" together with the list.
+        .scrollDisabled(draggingRecipeID != nil)
         .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
             viewModel.handleScrollOffsetChange(-offset)
         }
