@@ -82,7 +82,13 @@ struct LibraryView: View {
             floatingControls
                 .zIndex(3)
         }
-        .onAppear {
+        .task {
+            // Defer the one-shot sortOrder migration off the first render
+            // frame. Running it inline in .onAppear meant mutating every
+            // Recipe in the deck during the same tick as initial layout,
+            // which on first-launch-after-update made the app look frozen
+            // until the user swiped out and back in. The Task hop lets the
+            // first interactive frame paint, then the migration runs.
             migrateSortOrderIfNeeded()
         }
         // Pull-down-to-search trigger from the view-model now expands the

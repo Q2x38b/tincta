@@ -117,8 +117,21 @@ func drawIcon(in ctx: CGContext, strokeColor: CGColor) {
     let margin: CGFloat = canvasSize * 0.26
     let drawableSide = canvasSize - margin * 2
     let scale = drawableSide / svgSize
-    ctx.translateBy(x: (canvas.width - drawableSide) / 2,
-                    y: (canvas.height - drawableSide) / 2)
+
+    // Optical correction. Geometric center of the 24×24 SVG is (12,12),
+    // but the icon's visual mass is biased UP and to the RIGHT (wide
+    // V-shaped bowl + olive in the upper-right corner — stem and base
+    // are thin lines that don't compensate). Shift the icon DOWN by
+    // ~1.1 SVG units and LEFT by ~0.9 SVG units so the perceived
+    // center matches the canvas center. Values tuned by eye to feel
+    // balanced at home-screen size and in the splash.
+    let opticalShiftSVG_X: CGFloat = -0.9
+    let opticalShiftSVG_Y: CGFloat =  1.1
+    let opticalShiftPx_X = opticalShiftSVG_X * (drawableSide / svgSize)
+    let opticalShiftPx_Y = opticalShiftSVG_Y * (drawableSide / svgSize)
+
+    ctx.translateBy(x: (canvas.width - drawableSide) / 2 + opticalShiftPx_X,
+                    y: (canvas.height - drawableSide) / 2 + opticalShiftPx_Y)
     ctx.scaleBy(x: scale, y: scale)
 
     let path = buildIconPath()

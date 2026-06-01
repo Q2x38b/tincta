@@ -168,11 +168,11 @@ public struct IngredientLineText: View {
             Text(quantity)
                 .font(.tinctaIngredient(pointSize))
             if !unit.isEmpty {
-                Text(unit.uppercased())
+                Text(unit)
                     .font(.tinctaIngredient(pointSize * 0.7))
-                    .tracking(0.6)
+                    .tracking(0.3)
             }
-            Text(name.uppercased())
+            Text(name)
                 .font(.tinctaIngredient(pointSize))
         }
     }
