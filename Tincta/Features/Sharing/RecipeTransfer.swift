@@ -30,6 +30,11 @@ struct RecipePayload: Codable, Sendable, Equatable, Identifiable {
     let groupTags: [String]
     let ingredients: [IngredientPayload]
     let drinkLook: DrinkLookPayload?
+    /// Optional sized variants (e.g. "Regular", "Grande", "Pitcher"). Each
+    /// size carries per-ingredient quantity overrides referenced by the
+    /// ingredient's payload id. Older payloads predate this field — keep it
+    /// optional so a `nil` decode still works.
+    let sizes: [SizePayload]?
 
     init(
         id: UUID,
@@ -39,7 +44,8 @@ struct RecipePayload: Codable, Sendable, Equatable, Identifiable {
         credit: String?,
         groupTags: [String],
         ingredients: [IngredientPayload],
-        drinkLook: DrinkLookPayload?
+        drinkLook: DrinkLookPayload?,
+        sizes: [SizePayload]? = nil
     ) {
         self.id = id
         self.name = name
@@ -49,6 +55,57 @@ struct RecipePayload: Codable, Sendable, Equatable, Identifiable {
         self.groupTags = groupTags
         self.ingredients = ingredients
         self.drinkLook = drinkLook
+        self.sizes = sizes
+    }
+}
+
+// MARK: - Size payload
+
+/// One named size variant for a recipe (e.g. "Regular", "Grande").
+/// Per-ingredient amount overrides live in `amounts`, keyed by the payload
+/// id of the base `IngredientPayload`. Missing overrides inherit the
+/// recipe's base amount.
+struct SizePayload: Codable, Sendable, Equatable, Identifiable {
+    let id: UUID
+    let name: String
+    let sortOrder: Int
+    let isDefault: Bool
+    let amounts: [SizeAmountPayload]
+
+    init(
+        id: UUID,
+        name: String,
+        sortOrder: Int,
+        isDefault: Bool,
+        amounts: [SizeAmountPayload]
+    ) {
+        self.id = id
+        self.name = name
+        self.sortOrder = sortOrder
+        self.isDefault = isDefault
+        self.amounts = amounts
+    }
+}
+
+struct SizeAmountPayload: Codable, Sendable, Equatable, Identifiable {
+    let id: UUID
+    /// Matches `IngredientPayload.id` on the parent recipe payload. The
+    /// importer maps source-payload ingredient UUIDs to newly-inserted
+    /// Ingredient UUIDs before resolving these references.
+    let ingredientID: UUID
+    let quantityWhole: Int
+    let fractionRaw: String?
+
+    init(
+        id: UUID,
+        ingredientID: UUID,
+        quantityWhole: Int,
+        fractionRaw: String?
+    ) {
+        self.id = id
+        self.ingredientID = ingredientID
+        self.quantityWhole = quantityWhole
+        self.fractionRaw = fractionRaw
     }
 }
 
@@ -137,6 +194,7 @@ extension RecipePayload {
     /// from the source for round-tripping; the importer always assigns fresh
     /// UUIDs to avoid PK collisions.
     init(recipe: Recipe) {
+        let sizePayloads = recipe.orderedSizes.map(SizePayload.init(size:))
         self.init(
             id: recipe.id,
             name: recipe.name,
@@ -145,7 +203,31 @@ extension RecipePayload {
             credit: recipe.credit,
             groupTags: recipe.groupTags,
             ingredients: recipe.orderedIngredients.map(IngredientPayload.init(ingredient:)),
-            drinkLook: recipe.drinkLook.map(DrinkLookPayload.init(drinkLook:))
+            drinkLook: recipe.drinkLook.map(DrinkLookPayload.init(drinkLook:)),
+            sizes: sizePayloads.isEmpty ? nil : sizePayloads
+        )
+    }
+}
+
+extension SizePayload {
+    init(size: RecipeSize) {
+        self.init(
+            id: size.id,
+            name: size.name,
+            sortOrder: size.sortOrder,
+            isDefault: size.isDefault,
+            amounts: size.amounts.map(SizeAmountPayload.init(amount:))
+        )
+    }
+}
+
+extension SizeAmountPayload {
+    init(amount: SizeAmount) {
+        self.init(
+            id: amount.id,
+            ingredientID: amount.ingredientID,
+            quantityWhole: amount.quantityWhole,
+            fractionRaw: amount.fractionRaw
         )
     }
 }

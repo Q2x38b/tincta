@@ -113,9 +113,15 @@ enum TransferCodec {
             )
             context.insert(recipe)
 
+            // Map source-payload ingredient UUIDs → newly-inserted Ingredient
+            // UUIDs so that SizePayload.amounts (which references the source
+            // ids) can be re-pointed at the freshly created Ingredient rows.
+            var ingredientIDMap: [UUID: UUID] = [:]
             for ingredientPayload in recipePayload.ingredients {
+                let newID = UUID()
+                ingredientIDMap[ingredientPayload.id] = newID
                 let ingredient = Ingredient(
-                    id: UUID(),
+                    id: newID,
                     quantityWhole: ingredientPayload.quantityWhole,
                     fraction: ingredientPayload.fractionRaw.flatMap(Fraction.init(rawValue:)),
                     unit: Unit(rawValue: ingredientPayload.unitRaw) ?? .oz,
@@ -138,6 +144,39 @@ enum TransferCodec {
                 )
                 look.recipe = recipe
                 context.insert(look)
+            }
+
+            // Sizes — optional in the wire schema, so older payloads will
+            // simply skip this loop. Each SizeAmount references an
+            // ingredient by its source-payload UUID; remap via the table
+            // we just built so the override points at the right row.
+            if let sizePayloads = recipePayload.sizes {
+                for sizePayload in sizePayloads {
+                    let size = RecipeSize(
+                        id: UUID(),
+                        name: sizePayload.name,
+                        sortOrder: sizePayload.sortOrder,
+                        isDefault: sizePayload.isDefault
+                    )
+                    size.recipe = recipe
+                    context.insert(size)
+
+                    for amountPayload in sizePayload.amounts {
+                        guard let mappedIngredientID = ingredientIDMap[amountPayload.ingredientID] else {
+                            // Orphaned override — silently skip rather than
+                            // attaching it to a missing ingredient.
+                            continue
+                        }
+                        let amount = SizeAmount(
+                            id: UUID(),
+                            ingredientID: mappedIngredientID,
+                            quantityWhole: amountPayload.quantityWhole,
+                            fraction: amountPayload.fractionRaw.flatMap(Fraction.init(rawValue:))
+                        )
+                        amount.size = size
+                        context.insert(amount)
+                    }
+                }
             }
 
             inserted.append(recipe)
