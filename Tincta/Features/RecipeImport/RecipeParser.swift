@@ -1,5 +1,13 @@
 import Foundation
-import FoundationModels
+// Weak-linking the FoundationModels framework. Without this, dyld eagerly
+// loads the entire on-device LLM framework at app launch (it's one of the
+// heaviest SDK frameworks on iOS 26), which was a big slice of the cold-
+// launch time the user has been seeing. With @_weakLinked, the framework
+// is mapped lazily — only when we actually touch a symbol from it on the
+// first Scan tap. SystemLanguageModel.default.availability already gates
+// our usage to iOS 26 + Apple Intelligence devices, so a missing framework
+// on older OSes is handled.
+@_weakLinked import FoundationModels
 
 /// Structured-output types for the on-device parser.
 ///

@@ -32,18 +32,30 @@ struct LibrarySearchView: View {
             VStack(spacing: 0) {
                 searchField
 
-                List {
-                    ForEach(matches) { match in
-                        Button {
-                            onPick(match.recipe)
-                        } label: {
-                            SearchRow(match: match, query: query)
+                // ScrollView + LazyVStack instead of List. `List` here was a
+                // UIKit-backed UITableView, which is slow to mount during
+                // the same animation tick as the sheet's slide-up + the
+                // keyboard's appear. LazyVStack is pure SwiftUI and mounts
+                // its rows lazily, so the sheet opens cleanly.
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(matches) { match in
+                            Button {
+                                onPick(match.recipe)
+                            } label: {
+                                SearchRow(match: match, query: query)
+                                    .padding(.horizontal, 18)
+                                    .padding(.vertical, 6)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            Divider()
+                                .background(Color.white.opacity(0.06))
+                                .padding(.leading, 70)
                         }
-                        .buttonStyle(.plain)
                     }
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
+                .scrollIndicators(.hidden)
             }
             .background(Color.tinctaInk.ignoresSafeArea())
             .navigationTitle("Search")
@@ -53,11 +65,30 @@ struct LibrarySearchView: View {
                     Button("Done") { dismiss() }
                 }
             }
+            // Defer everything past the present animation:
+            //   - Index is built on a detached background task (the
+            //     lowercasing + tokenising + Set-building can stutter on
+            //     larger libraries if done synchronously on main)
+            //   - Field focus is delayed ~250ms so the keyboard appears
+            //     AFTER the sheet has finished its slide-up. Trying to
+            //     focus immediately in .onAppear was causing the freeze
+            //     where the sheet would stall mid-animation.
             .onAppear {
-                fieldFocused = true
-                rebuildIndex()
+                Task.detached(priority: .userInitiated) {
+                    let built = await Self.buildIndex(from: recipes)
+                    await MainActor.run { index = built }
+                }
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(250))
+                    fieldFocused = true
+                }
             }
-            .onChange(of: recipes) { _, _ in rebuildIndex() }
+            .onChange(of: recipes) { _, latest in
+                Task.detached(priority: .userInitiated) {
+                    let built = await Self.buildIndex(from: latest)
+                    await MainActor.run { index = built }
+                }
+            }
         }
     }
 
@@ -157,29 +188,37 @@ struct LibrarySearchView: View {
         return nameHits + ingHits + fuzzyHits
     }
 
-    /// Pre-lowercases every recipe name + every ingredient name once. Called
-    /// on appear and whenever the input list changes. Keystroke search then
-    /// becomes a pure string-contains + edit-distance loop.
-    private func rebuildIndex() {
-        index = recipes.map { recipe in
-            let lowerName = recipe.name.lowercased()
-            let lowerIngs = recipe.orderedIngredients.map { $0.name.lowercased() }
-            // One token per whole word across name + ingredients. We dedupe
-            // and drop tokens shorter than 3 chars since they generate too
-            // many fuzzy false-positives.
-            var tokens = Set<String>()
-            for src in [lowerName] + lowerIngs {
-                for word in src.split(whereSeparator: { !$0.isLetter }) where word.count >= 3 {
-                    tokens.insert(String(word))
-                }
-            }
-            return SearchEntry(
-                recipe: recipe,
-                lowerName: lowerName,
-                tokens: Array(tokens),
-                lowerIngredients: lowerIngs
-            )
+    /// Pre-lowercases every recipe name + ingredient name once. Static so
+    /// it can be called from `Task.detached` off the main actor — keystroke
+    /// search then becomes a pure string-contains + edit-distance loop.
+    @MainActor
+    private static func buildIndex(from recipes: [Recipe]) async -> [SearchEntry] {
+        // Snapshot the SwiftData-bound fields on the main actor first, then
+        // do the lowercasing + tokenising work off-main. Touching @Model
+        // properties from a background actor isn't safe.
+        struct Snapshot { let recipe: Recipe; let name: String; let ingredientNames: [String] }
+        let snapshots: [Snapshot] = recipes.map { r in
+            Snapshot(recipe: r, name: r.name, ingredientNames: r.orderedIngredients.map(\.name))
         }
+        return await Task.detached(priority: .userInitiated) {
+            snapshots.map { snap in
+                let lowerName = snap.name.lowercased()
+                let lowerIngs = snap.ingredientNames.map { $0.lowercased() }
+                var tokens = Set<String>()
+                for src in [lowerName] + lowerIngs {
+                    for word in src.split(whereSeparator: { !$0.isLetter })
+                    where word.count >= 3 {
+                        tokens.insert(String(word))
+                    }
+                }
+                return SearchEntry(
+                    recipe: snap.recipe,
+                    lowerName: lowerName,
+                    tokens: Array(tokens),
+                    lowerIngredients: lowerIngs
+                )
+            }
+        }.value
     }
 }
 
