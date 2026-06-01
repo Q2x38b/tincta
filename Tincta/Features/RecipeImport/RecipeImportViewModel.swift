@@ -218,7 +218,7 @@ final class IngredientLineDraft: Identifiable {
     convenience init(parsed: ParsedIngredient) {
         self.init(
             quantityWhole: max(0, parsed.quantityWhole),
-            fraction: Fraction(rawValue: parsed.fraction),
+            fraction: Fraction.parse(parsed.fraction),
             unit: Unit(rawValue: parsed.unit) ?? .oz,
             name: parsed.name.trimmingCharacters(in: .whitespacesAndNewlines)
         )

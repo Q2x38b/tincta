@@ -35,6 +35,33 @@ public enum Fraction: String, CaseIterable, Codable, Sendable, Identifiable {
         case .threeQuarters:   return "¾"
         }
     }
+
+    /// Tolerant parser used by the OCR / Foundation Models import path.
+    /// The on-device LLM sometimes emits unicode fractions ("½") instead
+    /// of the slash form ("1/2"), and OCR transcripts of recipe pages
+    /// almost always contain unicode fractions verbatim — `Fraction(rawValue:)`
+    /// alone would silently drop them.
+    public static func parse(_ raw: String) -> Fraction? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        // Slash form: "1/2", "3/4", … — covers the Generable-declared format.
+        if let direct = Fraction(rawValue: trimmed) { return direct }
+        // Single unicode glyphs the LLM / OCR commonly produce.
+        switch trimmed {
+        case "½", "1⁄2":   return .half
+        case "¼", "1⁄4":   return .quarter
+        case "¾", "3⁄4":   return .threeQuarters
+        case "⅓", "1⁄3":   return .third
+        case "⅔", "2⁄3":   return .twoThirds
+        case "⅛", "1⁄8":   return .eighth
+        default:           break
+        }
+        // Spaced or duplicated separators: "1 / 2", "1 ⁄ 2".
+        let normalised = trimmed
+            .replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "⁄", with: "/")
+        return Fraction(rawValue: normalised)
+    }
 }
 
 // MARK: - Unit

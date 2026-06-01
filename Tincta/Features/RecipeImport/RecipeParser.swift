@@ -135,11 +135,21 @@ enum RecipeParser {
         recipe records. You are precise about units (oz vs ml) and never invent \
         ingredients that aren't in the source.
 
-        - Quantities like "1 ½ oz" become quantityWhole=1, fraction="1/2", unit="oz".
-        - Quantities like "¾ oz" become quantityWhole=0, fraction="3/4", unit="oz".
-        - "1 dash" becomes quantityWhole=1, fraction="", unit="dash".
-        - "8 mint leaves" becomes quantityWhole=8, fraction="", unit="leaf", name="Mint".
-        - "Top with club soda" becomes quantityWhole=0, fraction="", unit="top", name="Club Soda".
+        FRACTION RULES (read carefully — every fraction MUST emit in slash form):
+        - The `fraction` field MUST be exactly one of: "", "1/8", "1/4", "1/3", "1/2", "2/3", "3/4".
+        - NEVER emit the unicode glyphs ½ ⅓ ¼ ¾ ⅔ ⅛ — always convert to slash form.
+        - "1 ½ oz", "1½ oz", "1.5 oz", "1 1/2 oz" → quantityWhole=1, fraction="1/2", unit="oz".
+        - "¾ oz", "3/4 oz", ".75 oz" → quantityWhole=0, fraction="3/4", unit="oz".
+        - "½ oz" → quantityWhole=0, fraction="1/2", unit="oz".
+        - "2 oz" → quantityWhole=2, fraction="", unit="oz".
+        - Decimals not in the set above (e.g. 1.4) → round to the nearest standard
+          fraction. 1.4 → fraction="1/3" (1⅓ is closer than 1¼).
+        - If no fractional part at all, emit fraction="" (empty string) — never "0" or "0/1".
+
+        OTHER RULES:
+        - "1 dash" → quantityWhole=1, fraction="", unit="dash".
+        - "8 mint leaves" → quantityWhole=8, fraction="", unit="leaf", name="Mint".
+        - "Top with club soda" → quantityWhole=0, fraction="", unit="top", name="Club Soda".
         - Strip trailing punctuation from ingredient names.
         - Preserve directions verbatim, one step per line. Don't paraphrase or shorten.
         - Recipe names use Title Case.
@@ -166,7 +176,7 @@ extension ParsedRecipe {
         recipe.ingredients = ingredients.enumerated().map { idx, ing in
             Ingredient(
                 quantityWhole: max(0, ing.quantityWhole),
-                fraction: Fraction(rawValue: ing.fraction),
+                fraction: Fraction.parse(ing.fraction),
                 unit: Unit(rawValue: ing.unit) ?? .oz,
                 name: ing.name.trimmingCharacters(in: .whitespacesAndNewlines),
                 order: idx
