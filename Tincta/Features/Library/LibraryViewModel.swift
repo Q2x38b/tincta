@@ -50,15 +50,22 @@ final class LibraryViewModel {
 
     /// What part of the recipe a query matched against. Drives the
     /// "Contains X" badge rendered on cards that matched on something
-    /// other than the recipe name.
+    /// other than the recipe name. The associated value is whatever the
+    /// card should surface — for `.direction` it's a trimmed snippet of
+    /// the matching step line.
     enum MatchKind: Equatable {
         case name
         case ingredient(String)
         case tag(String)
+        case direction(String)
+        case credit(String)
     }
 
     /// Returns the strongest match kind for `recipe` against the query, or
-    /// nil if no part matched. Name beats ingredient beats tag.
+    /// nil if no part matched. Priority: name > ingredient > tag > step
+    /// (a single directions line) > credit. Cheap O(fields) per recipe —
+    /// no precomputed index since the deck is at most a few hundred items
+    /// and SwiftUI rate-limits TextField updates already.
     func match(_ recipe: Recipe, query rawQuery: String) -> MatchKind? {
         let query = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !query.isEmpty else { return .name }
@@ -72,6 +79,16 @@ final class LibraryViewModel {
         }
         if let tag = recipe.groupTags.first(where: { $0.lowercased().contains(query) }) {
             return .tag(tag)
+        }
+        // Per-line scan so the snippet has a clean boundary to show on
+        // the card badge. Short-circuits on the first matching line.
+        for line in recipe.directions.split(whereSeparator: { $0 == "\n" }) {
+            if line.lowercased().contains(query) {
+                return .direction(line.trimmingCharacters(in: .whitespacesAndNewlines))
+            }
+        }
+        if let credit = recipe.credit, credit.lowercased().contains(query) {
+            return .credit(credit)
         }
         return nil
     }

@@ -116,6 +116,18 @@ struct RecipeCardView: View {
             return "Contains \(name)"
         case .tag(let tag):
             return "Tagged \(tag)"
+        case .direction(let snippet):
+            // Keep the badge a single short line — long directions get
+            // ellipsised so the card height doesn't jump around.
+            let max = 44
+            let clean = snippet.replacingOccurrences(of: "\n", with: " ")
+            if clean.count > max {
+                let cut = clean.index(clean.startIndex, offsetBy: max - 1)
+                return "Step: \(clean[..<cut])…"
+            }
+            return "Step: \(clean)"
+        case .credit(let credit):
+            return "From \(credit)"
         case .name, nil:
             return nil
         }
