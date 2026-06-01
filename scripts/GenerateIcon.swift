@@ -95,9 +95,13 @@ func buildIconPath() -> CGMutablePath {
 
 // MARK: - Drawing
 
-/// Centres the 24×24 SVG into the 1024×1024 canvas with a 6% margin,
-/// then strokes with the requested colour.
-func drawIcon(in ctx: CGContext, strokeColor: CGColor) {
+/// Centres the 24×24 SVG into the 1024×1024 canvas, then strokes with
+/// the requested colour. `marginFraction` controls how much of the canvas
+/// is empty around the icon — larger values make the icon smaller in the
+/// tile. App icons want ~26% margin (Apple's rounded square eats some);
+/// the launch-screen logo wants a much larger margin so the mark feels
+/// like a wordmark rather than filling the device screen.
+func drawIcon(in ctx: CGContext, strokeColor: CGColor, marginFraction: CGFloat) {
     let canvas = CGRect(x: 0, y: 0, width: canvasSize, height: canvasSize)
 
     ctx.saveGState()
@@ -109,24 +113,30 @@ func drawIcon(in ctx: CGContext, strokeColor: CGColor) {
     ctx.translateBy(x: 0, y: canvas.height)
     ctx.scaleBy(x: 1, y: -1)
 
-    // Centre the 24×24 SVG into the canvas. Margin is much larger than
-    // before (was 0.10) so the icon sits as a small, comfortable mark in
-    // the centre rather than filling the whole tile — both for the app
-    // icon and for the splash logo.
     let svgSize: CGFloat = 24
-    let margin: CGFloat = canvasSize * 0.26
+    let margin: CGFloat = canvasSize * marginFraction
     let drawableSide = canvasSize - margin * 2
     let scale = drawableSide / svgSize
 
-    // Optical correction. Geometric center of the 24×24 SVG is (12,12),
-    // but the icon's visual mass is biased UP and to the RIGHT (wide
-    // V-shaped bowl + olive in the upper-right corner — stem and base
-    // are thin lines that don't compensate). Shift the icon DOWN by
-    // ~1.1 SVG units and LEFT by ~0.9 SVG units so the perceived
-    // center matches the canvas center. Values tuned by eye to feel
-    // balanced at home-screen size and in the splash.
-    let opticalShiftSVG_X: CGFloat = -0.9
-    let opticalShiftSVG_Y: CGFloat =  1.1
+    // Optical correction.
+    //
+    // The 24×24 SVG bounding box is centered at (12, 12), but the icon's
+    // visual mass is NOT. By stroke length the bowl-V (≈25 units) and
+    // olive (≈22 units) dominate, both sitting in the upper half of the
+    // glyph; the stem (6) and base (3) at the bottom are thin lines that
+    // don't counterweight. Net effect: the eye's center of attention is
+    // ABOVE geometric center.
+    //
+    // The olive in the upper-right also pulls horizontal mass right of
+    // x=12, but only slightly — the bowl strokes are symmetric around
+    // x=9, so the rightward pull is small relative to the vertical bias.
+    //
+    // Shift the icon DOWN by ~1.7 SVG units (≈7%) and LEFT by ~0.3 SVG
+    // units (≈1.3%) so the perceived center matches the canvas center.
+    // Values tuned by eye after the first +1.1y / -0.9x pass was still
+    // sitting visibly high in the tile.
+    let opticalShiftSVG_X: CGFloat = -0.3
+    let opticalShiftSVG_Y: CGFloat =  1.7
     let opticalShiftPx_X = opticalShiftSVG_X * (drawableSide / svgSize)
     let opticalShiftPx_Y = opticalShiftSVG_Y * (drawableSide / svgSize)
 
@@ -148,7 +158,7 @@ func drawIcon(in ctx: CGContext, strokeColor: CGColor) {
 
 // MARK: - PNG output
 
-func renderPNG(strokeColor: CGColor, to url: URL) throws {
+func renderPNG(strokeColor: CGColor, marginFraction: CGFloat, to url: URL) throws {
     let bitmapInfo: UInt32 =
         CGBitmapInfo.byteOrder32Big.rawValue |
         CGImageAlphaInfo.premultipliedLast.rawValue
@@ -165,7 +175,7 @@ func renderPNG(strokeColor: CGColor, to url: URL) throws {
         fatalError("Failed to make CGContext")
     }
 
-    drawIcon(in: ctx, strokeColor: strokeColor)
+    drawIcon(in: ctx, strokeColor: strokeColor, marginFraction: marginFraction)
 
     guard let cgImage = ctx.makeImage() else {
         fatalError("Failed to make CGImage")
@@ -189,25 +199,40 @@ func renderPNG(strokeColor: CGColor, to url: URL) throws {
 
 // MARK: - Run
 
+// App icon — fills its tile comfortably. Apple's rounded-square mask
+// chews ~10% off each edge so a 26% canvas margin leaves the icon
+// comfortable on the home screen.
+let appIconMargin: CGFloat = 0.26
+// Launch / splash logo — bigger margin so the mark feels like a small
+// wordmark on the dark splash background rather than dominating the
+// device screen. UILaunchScreen scales this PNG to the device's safe
+// area, so the empty canvas around the icon translates directly into
+// breathing room on the splash.
+let launchLogoMargin: CGFloat = 0.40
+
 do {
     // App icon — dark variant (light strokes on transparent for dark
     // Home Screen).
     try renderPNG(strokeColor: lightStroke,
+                  marginFraction: appIconMargin,
                   to: iconSetDir.appendingPathComponent("AppIcon-dark.png"))
 
     // App icon — light variant (dark strokes on transparent for the
     // default / light Home Screen).
     try renderPNG(strokeColor: darkStroke,
+                  marginFraction: appIconMargin,
                   to: iconSetDir.appendingPathComponent("AppIcon-light.png"))
 
     // Logo asset — used by the splash screen + anywhere else we show
     // the wordless mark. Light strokes so it reads on the dark splash bg.
     try renderPNG(strokeColor: lightStroke,
+                  marginFraction: launchLogoMargin,
                   to: logoSetDir.appendingPathComponent("logo-transparent.png"))
 
     // Launch logo @3x — small version iOS shows centred during the
     // pre-app system launch screen.
     try renderPNG(strokeColor: lightStroke,
+                  marginFraction: launchLogoMargin,
                   to: launchLogoDir.appendingPathComponent("launch-logo.png"))
 
     print("Done.")
