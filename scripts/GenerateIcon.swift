@@ -109,10 +109,12 @@ func drawIcon(in ctx: CGContext, strokeColor: CGColor) {
     ctx.translateBy(x: 0, y: canvas.height)
     ctx.scaleBy(x: 1, y: -1)
 
-    // Centre the 24×24 SVG into the canvas with a margin so strokes don't
-    // touch the edges.
+    // Centre the 24×24 SVG into the canvas. Margin is much larger than
+    // before (was 0.10) so the icon sits as a small, comfortable mark in
+    // the centre rather than filling the whole tile — both for the app
+    // icon and for the splash logo.
     let svgSize: CGFloat = 24
-    let margin: CGFloat = canvasSize * 0.10
+    let margin: CGFloat = canvasSize * 0.26
     let drawableSide = canvasSize - margin * 2
     let scale = drawableSide / svgSize
     ctx.translateBy(x: (canvas.width - drawableSide) / 2,

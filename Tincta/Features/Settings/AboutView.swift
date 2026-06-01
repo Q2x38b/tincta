@@ -67,13 +67,18 @@ public struct AboutView: View {
                 )
                 .padding(.horizontal, 20)
 
-                // Type credit — required by the SIL Open Font License v1.1
-                // that the bundled EB Garamond TTFs ship under. Full license
-                // text is at Tincta/Resources/Fonts/OFL.txt.
+                // Credits — required by the licenses on the bundled
+                // assets. SIL OFL v1.1 (Crimson Pro) and CC BY-SA 4.0
+                // (OpenMoji). Full license texts ship at
+                // Tincta/Resources/Fonts/OFL.txt and OPENMOJI_LICENSE.txt.
                 VStack(spacing: 0) {
                     aboutRow(icon: "textformat",
                              title: "Type",
                              subtitle: "Crimson Pro by Sebastian Kosch & Jacques Le Bailly, SIL Open Font License v1.1.")
+                    Divider().padding(.leading, 52)
+                    aboutRow(icon: "wineglass",
+                             title: "Drink art",
+                             subtitle: "OpenMoji — the open-source emoji + icon project. CC BY-SA 4.0.")
                 }
                 .background(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)

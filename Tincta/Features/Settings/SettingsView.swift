@@ -31,19 +31,10 @@ public struct SettingsView: View {
                     Text("Volumetric ingredients are displayed in this unit. Other ingredients are unaffected.")
                 }
 
-                Section {
-                    Picker("Theme", selection: $settings.appearance) {
-                        ForEach(Appearance.allCases) { a in
-                            Text(a.display).tag(a)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                } header: {
-                    Text("Appearance")
-                } footer: {
-                    Text("Choose how Tincta looks. \"System\" follows your iPhone setting.")
-                }
-
+                // Appearance picker removed — Tincta now forces dark mode
+                // app-wide via .preferredColorScheme(.dark) in TinctaApp,
+                // so the System/Light/Dark options didn't actually do
+                // anything.
                 Section {
                     NavigationLink {
                         AboutView()

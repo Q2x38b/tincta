@@ -79,11 +79,12 @@ extension Color {
         guard ui.getHue(&h, saturation: &s, brightness: &b, alpha: &a) else {
             return self
         }
-        // Light bg → darker shade; dark bg → lighter shade. Larger deltas
-        // than the first cut so contrast is actually readable — was 0.32/0.30
-        // before which read too subtle on real device.
-        let newB: CGFloat = b > 0.55 ? max(0, b - 0.45) : min(1, b + 0.42)
-        let newS: CGFloat = min(1, s * 1.20 + 0.08)
+        // Light bg → darker shade; dark bg → lighter shade. Brightness
+        // delta bumped again — ±0.45 still read too subtle on real
+        // device. ±0.58 lands closer to typical "muted text on coloured
+        // card" contrast used in editorial design.
+        let newB: CGFloat = b > 0.55 ? max(0, b - 0.58) : min(1, b + 0.55)
+        let newS: CGFloat = min(1, s * 1.25 + 0.10)
         return Color(hue: Double(h),
                      saturation: Double(newS),
                      brightness: Double(newB),
